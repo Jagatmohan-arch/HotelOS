@@ -1,0 +1,31 @@
+# HotelOS Git Ignore Rules
+
+# Environment & Secrets
+.env
+.env.local
+.env.production
+config/database.local.php
+
+# Cache & Logs
+cache/*
+!cache/.gitkeep
+logs/*
+!logs/.gitkeep
+
+# IDE & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Dependencies (if any future additions)
+vendor/
+node_modules/
+
+# Debug & Temp
+*.log
+*.tmp
+*.bak
+debug.php

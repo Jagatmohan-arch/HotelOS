@@ -1,0 +1,49 @@
+name: 🚀 Deploy HotelOS to Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: 📦 FTP Sync to MilesWeb
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: 🔄 Deploy via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          # CRITICAL: FTP user is ROOTED to project folder
+          # Using ./ to deploy directly, NOT /public_html/
+          server-dir: ./
+          protocol: ftp
+          # Exclude non-production files
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/.github/**
+            **/README.md
+            **/CHANGELOG.md
+            **/*.md
+            **/database/**
+            **/.vscode/**
+            **/.idea/**
+          log-level: standard
+      
+      - name: ✅ Deployment Complete
+        run: |
+          echo "========================================="
+          echo "🎉 HotelOS Deployed Successfully!"
+          echo "🌐 URL: https://hotelos.needkit.in"
+          echo "📅 Time: $(TZ='Asia/Kolkata' date)"
+          echo "========================================="

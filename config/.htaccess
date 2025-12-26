@@ -1,0 +1,5 @@
+# Deny all access to config directory
+# This protects database credentials and app secrets
+
+Order deny,allow
+Deny from all

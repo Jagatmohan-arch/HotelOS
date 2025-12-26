@@ -1,0 +1,5 @@
+# Deny all access to core directory
+# PHP classes should only be included, never accessed directly
+
+Order deny,allow
+Deny from all
