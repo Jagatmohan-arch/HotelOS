@@ -1,9 +1,9 @@
 <?php
 /**
- * HotelOS - Front Controller & Login Entry Point
+ * HotelOS - Front Controller
  * 
- * This is the main entry point for the application.
- * Handles login display and authentication routing.
+ * Main entry point - handles all routing for web and API requests
+ * Phase 2: Now includes Dashboard, Room Types, and Rooms routes
  */
 
 declare(strict_types=1);
@@ -19,25 +19,36 @@ define('PUBLIC_PATH', __DIR__);
 define('CONFIG_PATH', BASE_PATH . '/config');
 define('CORE_PATH', BASE_PATH . '/core');
 define('VIEWS_PATH', BASE_PATH . '/views');
+define('HANDLERS_PATH', BASE_PATH . '/handlers');
 define('CACHE_PATH', BASE_PATH . '/cache');
 define('LOGS_PATH', BASE_PATH . '/logs');
 
-// Autoload core classes (simple autoloader without Composer)
+// Autoload core classes
 spl_autoload_register(function (string $class): void {
-    // Convert namespace to path
-    $prefix = 'HotelOS\\Core\\';
-    $baseDir = CORE_PATH . '/';
+    // HotelOS\Core namespace
+    $corePrefix = 'HotelOS\\Core\\';
+    $coreDir = CORE_PATH . '/';
     
-    $len = strlen($prefix);
-    if (strncmp($prefix, $class, $len) !== 0) {
+    if (strncmp($corePrefix, $class, strlen($corePrefix)) === 0) {
+        $relativeClass = substr($class, strlen($corePrefix));
+        $file = $coreDir . str_replace('\\', '/', $relativeClass) . '.php';
+        if (file_exists($file)) {
+            require $file;
+        }
         return;
     }
     
-    $relativeClass = substr($class, $len);
-    $file = $baseDir . str_replace('\\', '/', $relativeClass) . '.php';
+    // HotelOS\Handlers namespace
+    $handlersPrefix = 'HotelOS\\Handlers\\';
+    $handlersDir = HANDLERS_PATH . '/';
     
-    if (file_exists($file)) {
-        require $file;
+    if (strncmp($handlersPrefix, $class, strlen($handlersPrefix)) === 0) {
+        $relativeClass = substr($class, strlen($handlersPrefix));
+        $file = $handlersDir . str_replace('\\', '/', $relativeClass) . '.php';
+        if (file_exists($file)) {
+            require $file;
+        }
+        return;
     }
 });
 
@@ -51,9 +62,11 @@ date_default_timezone_set($appConfig['timezone']);
 ini_set('error_log', LOGS_PATH . '/php_errors.log');
 
 use HotelOS\Core\Auth;
-use HotelOS\Core\Router;
 use HotelOS\Core\Database;
 use HotelOS\Core\TenantContext;
+use HotelOS\Handlers\DashboardHandler;
+use HotelOS\Handlers\RoomTypeHandler;
+use HotelOS\Handlers\RoomHandler;
 
 // ============================================
 // Request Handling
@@ -75,15 +88,39 @@ if (str_starts_with($requestUri, '/api/')) {
     header('Content-Type: application/json; charset=utf-8');
     
     try {
-        // POST /api/auth/login - Handle login
+        // POST /api/auth/login
         if ($requestUri === '/api/auth/login' && $requestMethod === 'POST') {
             handleLoginApi();
             exit;
         }
         
-        // POST /api/auth/logout - Handle logout
+        // POST /api/auth/logout
         if ($requestUri === '/api/auth/logout' && $requestMethod === 'POST') {
             handleLogoutApi();
+            exit;
+        }
+        
+        // GET /api/dashboard/stats
+        if ($requestUri === '/api/dashboard/stats' && $requestMethod === 'GET') {
+            requireApiAuth();
+            $handler = new DashboardHandler();
+            echo json_encode(['success' => true, 'data' => $handler->getStats()]);
+            exit;
+        }
+        
+        // GET /api/room-types
+        if ($requestUri === '/api/room-types' && $requestMethod === 'GET') {
+            requireApiAuth();
+            $handler = new RoomTypeHandler();
+            echo json_encode(['success' => true, 'data' => $handler->list()]);
+            exit;
+        }
+        
+        // GET /api/rooms
+        if ($requestUri === '/api/rooms' && $requestMethod === 'GET') {
+            requireApiAuth();
+            $handler = new RoomHandler();
+            echo json_encode(['success' => true, 'data' => $handler->list()]);
             exit;
         }
         
@@ -109,34 +146,84 @@ if (str_starts_with($requestUri, '/api/')) {
 try {
     $auth = Auth::getInstance();
     
-    // Redirect authenticated users to dashboard
+    // Redirect authenticated users to dashboard from login
     if ($auth->check() && in_array($requestUri, ['/', '/login'])) {
         header('Location: /dashboard');
         exit;
     }
     
+    // Protected routes - require authentication
+    $protectedRoutes = ['/dashboard', '/room-types', '/rooms', '/guests', '/bookings', '/settings'];
+    if (in_array($requestUri, $protectedRoutes) && !$auth->check()) {
+        header('Location: /');
+        exit;
+    }
+    
     // Route handling
     switch ($requestUri) {
+        // ========== Auth Routes ==========
         case '/':
         case '/login':
             renderLoginPage($auth);
-            break;
-            
-        case '/dashboard':
-            if (!$auth->check()) {
-                header('Location: /');
-                exit;
-            }
-            renderDashboard($auth);
             break;
             
         case '/logout':
             $auth->logout();
             header('Location: /?logged_out=1');
             exit;
+        
+        // ========== Dashboard ==========
+        case '/dashboard':
+            renderDashboard($auth);
+            break;
+        
+        // ========== Room Types ==========
+        case '/room-types':
+            renderRoomTypesPage($auth);
+            break;
+            
+        case '/room-types/create':
+            handleRoomTypeCreate($auth);
+            break;
+            
+        case '/room-types/update':
+            handleRoomTypeUpdate($auth);
+            break;
+            
+        case '/room-types/delete':
+            handleRoomTypeDelete($auth);
+            break;
+        
+        // ========== Rooms ==========
+        case '/rooms':
+            renderRoomsPage($auth);
+            break;
+            
+        case '/rooms/create':
+            handleRoomCreate($auth);
+            break;
+            
+        case '/rooms/update':
+            handleRoomUpdate($auth);
+            break;
+            
+        case '/rooms/status':
+            handleRoomStatusUpdate($auth);
+            break;
+            
+        case '/rooms/delete':
+            handleRoomDelete($auth);
+            break;
+        
+        // ========== Placeholder Routes ==========
+        case '/guests':
+        case '/bookings':
+        case '/settings':
+        case '/reports':
+            renderComingSoonPage($auth, ucfirst(substr($requestUri, 1)));
+            break;
             
         default:
-            // 404 Page
             http_response_code(404);
             renderErrorPage(404, 'Page Not Found');
             break;
@@ -155,12 +242,21 @@ try {
 }
 
 // ============================================
-// API Handlers
+// API Helpers
 // ============================================
+
+function requireApiAuth(): void
+{
+    $auth = Auth::getInstance();
+    if (!$auth->check()) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Unauthorized']);
+        exit;
+    }
+}
 
 function handleLoginApi(): void
 {
-    // Get JSON body
     $input = json_decode(file_get_contents('php://input'), true);
     
     if (!$input) {
@@ -172,17 +268,12 @@ function handleLoginApi(): void
     $email = trim($input['email'] ?? '');
     $password = $input['password'] ?? '';
     
-    // Validate input
     if (empty($email) || empty($password)) {
         http_response_code(400);
-        echo json_encode([
-            'success' => false,
-            'message' => 'Email and password are required'
-        ]);
+        echo json_encode(['success' => false, 'message' => 'Email and password are required']);
         return;
     }
     
-    // Attempt authentication
     $auth = Auth::getInstance();
     $result = $auth->attempt($email, $password);
     
@@ -199,10 +290,7 @@ function handleLoginApi(): void
         ]);
     } else {
         http_response_code(401);
-        echo json_encode([
-            'success' => false,
-            'message' => $result['message']
-        ]);
+        echo json_encode(['success' => false, 'message' => $result['message']]);
     }
 }
 
@@ -210,28 +298,18 @@ function handleLogoutApi(): void
 {
     $auth = Auth::getInstance();
     $auth->logout();
-    
-    echo json_encode([
-        'success' => true,
-        'message' => 'Logged out successfully',
-        'redirect' => '/'
-    ]);
+    echo json_encode(['success' => true, 'message' => 'Logged out successfully', 'redirect' => '/']);
 }
 
 // ============================================
-// View Renderers
+// Page Renderers
 // ============================================
 
 function renderLoginPage(Auth $auth): void
 {
     $error = null;
+    $csrfToken = $auth->csrfToken();
     
-    // Check for logout message
-    if (isset($_GET['logged_out'])) {
-        // Could show a success message
-    }
-    
-    // Check for error from form submission (non-JS fallback)
     if (isset($_GET['error'])) {
         $error = match($_GET['error']) {
             'invalid' => 'Invalid email or password.',
@@ -241,19 +319,13 @@ function renderLoginPage(Auth $auth): void
         };
     }
     
-    // Generate CSRF token
-    $csrfToken = $auth->csrfToken();
-    
-    // Render the page
     $title = 'Login';
     $bodyClass = 'page-login';
     
-    // Start output buffering for content
     ob_start();
     include VIEWS_PATH . '/auth/login.php';
     $content = ob_get_clean();
     
-    // Include base layout
     include VIEWS_PATH . '/layouts/base.php';
 }
 
@@ -262,65 +334,275 @@ function renderDashboard(Auth $auth): void
     $user = $auth->user();
     $csrfToken = $auth->csrfToken();
     
-    $title = 'Dashboard';
-    $bodyClass = 'page-dashboard';
+    // Get dashboard data
+    $dashboardHandler = new DashboardHandler();
+    $roomHandler = new RoomHandler();
     
-    // Placeholder dashboard content
+    $stats = $dashboardHandler->getStats();
+    $rooms = $dashboardHandler->getRoomsForGrid();
+    $statusSummary = $roomHandler->getStatusCounts();
+    
+    $title = 'Dashboard';
+    $currentRoute = 'dashboard';
+    $breadcrumbs = [];
+    
     ob_start();
-    ?>
-    <div class="min-h-screen flex items-center justify-center p-4">
-        <div class="glass-card glass-card--glow p-8 max-w-lg w-full text-center animate-fadeIn">
-            <div class="w-16 h-16 mx-auto mb-6 rounded-full bg-gradient-to-br from-cyan-400 to-purple-500 flex items-center justify-center">
-                <i data-lucide="check-circle" class="w-8 h-8 text-white"></i>
-            </div>
-            <h1 class="text-2xl font-bold text-white mb-2">Welcome, <?= htmlspecialchars($user['first_name']) ?>!</h1>
-            <p class="text-slate-400 mb-6">You're logged in as <span class="text-cyan-400"><?= htmlspecialchars(ucfirst($user['role'])) ?></span></p>
-            
-            <div class="bg-slate-800/50 rounded-lg p-4 mb-6 text-left">
-                <h3 class="text-sm font-medium text-slate-300 mb-2">Session Info</h3>
-                <p class="text-xs text-slate-500">Email: <?= htmlspecialchars($user['email']) ?></p>
-                <p class="text-xs text-slate-500">Tenant ID: <?= htmlspecialchars(TenantContext::getId() ?? 'N/A') ?></p>
-            </div>
-            
-            <div class="flex gap-4 justify-center">
-                <a href="/logout" class="btn btn--secondary">
-                    <i data-lucide="log-out" class="w-4 h-4"></i>
-                    Sign Out
-                </a>
-            </div>
-            
-            <p class="mt-8 text-xs text-slate-600">
-                🚧 Dashboard UI coming in Phase 2
-            </p>
-        </div>
-    </div>
-    <?php
+    include VIEWS_PATH . '/dashboard/index.php';
     $content = ob_get_clean();
     
-    include VIEWS_PATH . '/layouts/base.php';
+    include VIEWS_PATH . '/layouts/app.php';
 }
 
-function renderErrorPage(int $code, string $message): void
+function renderRoomTypesPage(Auth $auth): void
 {
-    $title = "Error {$code}";
-    $bodyClass = 'page-error';
+    $user = $auth->user();
+    $csrfToken = $auth->csrfToken();
+    
+    $handler = new RoomTypeHandler();
+    $roomTypes = $handler->list();
+    
+    // Check for flash messages
+    $error = $_SESSION['flash_error'] ?? null;
+    $success = $_SESSION['flash_success'] ?? null;
+    unset($_SESSION['flash_error'], $_SESSION['flash_success']);
+    
+    $title = 'Room Types';
+    $currentRoute = 'room-types';
+    $breadcrumbs = [
+        ['label' => 'Rooms', 'href' => '/rooms'],
+        ['label' => 'Room Types'],
+    ];
+    
+    ob_start();
+    include VIEWS_PATH . '/admin/room_types.php';
+    $content = ob_get_clean();
+    
+    include VIEWS_PATH . '/layouts/app.php';
+}
+
+function renderRoomsPage(Auth $auth): void
+{
+    $user = $auth->user();
+    $csrfToken = $auth->csrfToken();
+    
+    $roomHandler = new RoomHandler();
+    $roomTypeHandler = new RoomTypeHandler();
+    
+    $rooms = $roomHandler->list();
+    $roomTypes = $roomTypeHandler->list();
+    $statusCounts = $roomHandler->getStatusCounts();
+    
+    $error = $_SESSION['flash_error'] ?? null;
+    $success = $_SESSION['flash_success'] ?? null;
+    unset($_SESSION['flash_error'], $_SESSION['flash_success']);
+    
+    $title = 'Rooms';
+    $currentRoute = 'rooms';
+    $breadcrumbs = [['label' => 'Rooms']];
+    
+    ob_start();
+    include VIEWS_PATH . '/admin/rooms.php';
+    $content = ob_get_clean();
+    
+    include VIEWS_PATH . '/layouts/app.php';
+}
+
+function renderComingSoonPage(Auth $auth, string $feature): void
+{
+    $user = $auth->user();
+    $csrfToken = $auth->csrfToken();
+    
+    $title = $feature;
+    $currentRoute = strtolower($feature);
+    $breadcrumbs = [['label' => $feature]];
     
     ob_start();
     ?>
-    <div class="min-h-screen flex items-center justify-center p-4">
-        <div class="glass-card p-8 max-w-md w-full text-center">
-            <div class="text-6xl font-bold text-cyan-400 mb-4"><?= $code ?></div>
-            <h1 class="text-xl font-semibold text-white mb-2"><?= htmlspecialchars($message) ?></h1>
-            <p class="text-slate-400 mb-6">The page you're looking for doesn't exist.</p>
-            <a href="/" class="btn btn--primary">
-                <i data-lucide="home" class="w-4 h-4"></i>
-                Back to Home
+    <div class="flex items-center justify-center min-h-[60vh]">
+        <div class="glass-card p-8 text-center max-w-md">
+            <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-purple-500/20 flex items-center justify-center">
+                <i data-lucide="construction" class="w-8 h-8 text-purple-400"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-white mb-2"><?= htmlspecialchars($feature) ?></h1>
+            <p class="text-slate-400 mb-6">This feature is coming soon in the next update.</p>
+            <a href="/dashboard" class="btn btn--primary">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                Back to Dashboard
             </a>
         </div>
     </div>
     <?php
     $content = ob_get_clean();
     
+    include VIEWS_PATH . '/layouts/app.php';
+}
+
+function renderErrorPage(int $code, string $message): void
+{
+    $title = "Error {$code}";
+    $bodyClass = 'page-error';
     $csrfToken = '';
-    include VIEWS_PATH . '/layouts/base.php';
+    
+    ob_start();
+    ?>
+    <div class="min-h-screen flex items-center justify-center p-4" style="background: #0f172a;">
+        <div style="background: rgba(30,41,59,0.8); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); border-radius: 1rem; padding: 2rem; max-width: 400px; text-align: center;">
+            <div style="font-size: 4rem; font-weight: 700; color: #22d3ee; margin-bottom: 1rem;"><?= $code ?></div>
+            <h1 style="font-size: 1.25rem; font-weight: 600; color: white; margin-bottom: 0.5rem;"><?= htmlspecialchars($message) ?></h1>
+            <p style="color: #94a3b8; margin-bottom: 1.5rem;">The page you're looking for doesn't exist.</p>
+            <a href="/" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1.25rem; background: linear-gradient(135deg, #22d3ee, #06b6d4); color: #0f172a; font-weight: 600; border-radius: 0.5rem; text-decoration: none;">
+                Back to Home
+            </a>
+        </div>
+    </div>
+    <?php
+    $content = ob_get_clean();
+    echo $content;
+}
+
+// ============================================
+// Form Handlers - Room Types
+// ============================================
+
+function handleRoomTypeCreate(Auth $auth): void
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        header('Location: /room-types');
+        exit;
+    }
+    
+    try {
+        $handler = new RoomTypeHandler();
+        $handler->create($_POST);
+        $_SESSION['flash_success'] = 'Room type created successfully';
+    } catch (Throwable $e) {
+        $_SESSION['flash_error'] = $e->getMessage();
+    }
+    
+    header('Location: /room-types');
+    exit;
+}
+
+function handleRoomTypeUpdate(Auth $auth): void
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        header('Location: /room-types');
+        exit;
+    }
+    
+    try {
+        $id = (int) ($_POST['id'] ?? 0);
+        $handler = new RoomTypeHandler();
+        $handler->update($id, $_POST);
+        $_SESSION['flash_success'] = 'Room type updated successfully';
+    } catch (Throwable $e) {
+        $_SESSION['flash_error'] = $e->getMessage();
+    }
+    
+    header('Location: /room-types');
+    exit;
+}
+
+function handleRoomTypeDelete(Auth $auth): void
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        header('Location: /room-types');
+        exit;
+    }
+    
+    try {
+        $id = (int) ($_POST['id'] ?? 0);
+        $handler = new RoomTypeHandler();
+        $handler->delete($id);
+        $_SESSION['flash_success'] = 'Room type deleted successfully';
+    } catch (Throwable $e) {
+        $_SESSION['flash_error'] = $e->getMessage();
+    }
+    
+    header('Location: /room-types');
+    exit;
+}
+
+// ============================================
+// Form Handlers - Rooms
+// ============================================
+
+function handleRoomCreate(Auth $auth): void
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        header('Location: /rooms');
+        exit;
+    }
+    
+    try {
+        $handler = new RoomHandler();
+        $handler->create($_POST);
+        $_SESSION['flash_success'] = 'Room created successfully';
+    } catch (Throwable $e) {
+        $_SESSION['flash_error'] = $e->getMessage();
+    }
+    
+    header('Location: /rooms');
+    exit;
+}
+
+function handleRoomUpdate(Auth $auth): void
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        header('Location: /rooms');
+        exit;
+    }
+    
+    try {
+        $id = (int) ($_POST['id'] ?? 0);
+        $handler = new RoomHandler();
+        $handler->update($id, $_POST);
+        $_SESSION['flash_success'] = 'Room updated successfully';
+    } catch (Throwable $e) {
+        $_SESSION['flash_error'] = $e->getMessage();
+    }
+    
+    header('Location: /rooms');
+    exit;
+}
+
+function handleRoomStatusUpdate(Auth $auth): void
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        header('Location: /rooms');
+        exit;
+    }
+    
+    try {
+        $id = (int) ($_POST['id'] ?? 0);
+        $status = $_POST['status'] ?? '';
+        $handler = new RoomHandler();
+        $handler->updateStatus($id, $status);
+        $_SESSION['flash_success'] = 'Room status updated';
+    } catch (Throwable $e) {
+        $_SESSION['flash_error'] = $e->getMessage();
+    }
+    
+    header('Location: /rooms');
+    exit;
+}
+
+function handleRoomDelete(Auth $auth): void
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        header('Location: /rooms');
+        exit;
+    }
+    
+    try {
+        $id = (int) ($_POST['id'] ?? 0);
+        $handler = new RoomHandler();
+        $handler->delete($id);
+        $_SESSION['flash_success'] = 'Room deleted successfully';
+    } catch (Throwable $e) {
+        $_SESSION['flash_error'] = $e->getMessage();
+    }
+    
+    header('Location: /rooms');
+    exit;
 }
