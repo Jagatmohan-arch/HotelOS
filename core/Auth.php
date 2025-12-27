@@ -450,8 +450,10 @@ class Auth
     /**
      * Log audit event
      */
-    private function logAudit(string $action, string $entityType, ?int $entityId = null): void
+    private function logAudit(string $action, string $entityType, int|string|null $entityId = null): void
     {
+        $entityId = $entityId !== null ? (int) $entityId : null;  // Cast to int
+        
         if (!TenantContext::isActive()) {
             return;
         }

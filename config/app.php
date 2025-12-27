@@ -12,7 +12,7 @@ return [
     'name'      => 'HotelOS',
     'version'   => '1.0.0',
     'env'       => getenv('APP_ENV') ?: 'production',
-    'debug'     => true, // TEMPORARY DEBUG MODE - TURN OFF IN PRODUCTION
+    'debug'     => (bool)(getenv('APP_DEBUG') ?: false),
     'url'       => getenv('APP_URL') ?: 'https://hotelos.needkit.in',
     
     // Security
