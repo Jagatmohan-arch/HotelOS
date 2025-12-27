@@ -34,16 +34,22 @@ $navItems = [
         ]
     ],
     [
-        'route' => 'guests',
-        'label' => 'Guests',
-        'icon' => 'users',
-        'href' => '/guests',
-    ],
-    [
         'route' => 'bookings',
         'label' => 'Bookings',
         'icon' => 'calendar-check',
         'href' => '/bookings',
+    ],
+    [
+        'route' => 'housekeeping',
+        'label' => 'Housekeeping',
+        'icon' => 'spray-can',
+        'href' => '/housekeeping',
+    ],
+    [
+        'route' => 'pos',
+        'label' => 'POS & Extras',
+        'icon' => 'shopping-cart',
+        'href' => '/pos',
     ],
     [
         'route' => 'reports',
