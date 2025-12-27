@@ -210,15 +210,18 @@ class POSHandler
      */
     public function getInHouseGuests(): array
     {
+        $tenantId = TenantContext::getId();
         return $this->db->query(
             "SELECT b.id as booking_id, b.booking_number, 
                     CONCAT(g.first_name, ' ', g.last_name) as guest_name,
                     r.room_number
              FROM bookings b
-             JOIN guests g ON b.guest_id = g.id
-             JOIN rooms r ON b.room_id = r.id
-             WHERE b.status = 'checked_in'
-             ORDER BY r.room_number"
+             JOIN guests g ON b.guest_id = g.id AND g.tenant_id = :tenant_id1
+             JOIN rooms r ON b.room_id = r.id AND r.tenant_id = :tenant_id2
+             WHERE b.status = 'checked_in' AND b.tenant_id = :tenant_id3
+             ORDER BY r.room_number",
+            ['tenant_id1' => $tenantId, 'tenant_id2' => $tenantId, 'tenant_id3' => $tenantId],
+            enforceTenant: false
         );
     }
     
