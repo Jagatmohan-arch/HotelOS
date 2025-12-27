@@ -1241,3 +1241,115 @@ function renderReportsPage(Auth $auth): void
     
     include VIEWS_PATH . '/layouts/app.php';
 }
+
+// ============================================
+// Rooms Functions
+// ============================================
+
+function renderRoomsPage(Auth $auth): void
+{
+    $user = $auth->user();
+    $csrfToken = $auth->csrfToken();
+    
+    $roomHandler = new \HotelOS\Handlers\RoomHandler();
+    $roomTypeHandler = new \HotelOS\Handlers\RoomTypeHandler();
+    
+    $rooms = $roomHandler->list();
+    $roomTypes = $roomTypeHandler->list();
+    $statusCounts = $roomHandler->getStatusCounts();
+    
+    $success = $_SESSION['flash_success'] ?? null;
+    $error = $_SESSION['flash_error'] ?? null;
+    unset($_SESSION['flash_success'], $_SESSION['flash_error']);
+    
+    $title = 'Rooms';
+    $currentRoute = 'rooms';
+    $breadcrumbs = [['label' => 'Rooms']];
+    
+    ob_start();
+    include VIEWS_PATH . '/admin/rooms.php';
+    $content = ob_get_clean();
+    
+    include VIEWS_PATH . '/layouts/app.php';
+}
+
+function handleRoomCreate(Auth $auth): void
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        header('Location: /rooms');
+        exit;
+    }
+    
+    $handler = new \HotelOS\Handlers\RoomHandler();
+    
+    try {
+        $handler->create($_POST);
+        $_SESSION['flash_success'] = 'Room created successfully';
+    } catch (Throwable $e) {
+        $_SESSION['flash_error'] = $e->getMessage();
+    }
+    
+    header('Location: /rooms');
+    exit;
+}
+
+function handleRoomUpdate(Auth $auth): void
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        header('Location: /rooms');
+        exit;
+    }
+    
+    $handler = new \HotelOS\Handlers\RoomHandler();
+    $id = (int)($_POST['id'] ?? 0);
+    
+    try {
+        $handler->update($id, $_POST);
+        $_SESSION['flash_success'] = 'Room updated successfully';
+    } catch (Throwable $e) {
+        $_SESSION['flash_error'] = $e->getMessage();
+    }
+    
+    header('Location: /rooms');
+    exit;
+}
+
+function handleRoomStatusUpdate(Auth $auth): void
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        jsonResponse(['error' => 'Invalid method'], 405);
+    }
+    
+    $handler = new \HotelOS\Handlers\RoomHandler();
+    $data = json_decode(file_get_contents('php://input'), true) ?? $_POST;
+    $id = (int)($data['id'] ?? 0);
+    $status = $data['status'] ?? '';
+    
+    try {
+        $handler->updateStatus($id, $status);
+        jsonResponse(['success' => true]);
+    } catch (Throwable $e) {
+        jsonResponse(['error' => $e->getMessage()], 400);
+    }
+}
+
+function handleRoomDelete(Auth $auth): void
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        header('Location: /rooms');
+        exit;
+    }
+    
+    $handler = new \HotelOS\Handlers\RoomHandler();
+    $id = (int)($_POST['id'] ?? 0);
+    
+    try {
+        $handler->delete($id);
+        $_SESSION['flash_success'] = 'Room deleted successfully';
+    } catch (Throwable $e) {
+        $_SESSION['flash_error'] = $e->getMessage();
+    }
+    
+    header('Location: /rooms');
+    exit;
+}
