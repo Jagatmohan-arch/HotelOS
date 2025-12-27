@@ -8,9 +8,9 @@
 
 declare(strict_types=1);
 
-// Error handling - Never expose errors in production
+// Error handling - TEMPORARY DEBUG MODE
 error_reporting(E_ALL);
-ini_set('display_errors', '0');
+ini_set('display_errors', '1');  // TEMPORARY - TURN OFF IN PRODUCTION
 ini_set('log_errors', '1');
 
 // Define base paths - Works whether accessed directly or via root/index.php
