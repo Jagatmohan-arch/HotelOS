@@ -466,6 +466,26 @@ try {
             else header('Location: /settings?tab=times');
             break;
         
+        // ========== POS ==========
+        case '/pos':
+            renderPOSPage($auth);
+            break;
+            
+        case '/pos/charge':
+            if ($requestMethod === 'POST') handlePOSCharge($auth);
+            else header('Location: /pos');
+            break;
+            
+        case '/pos/item/create':
+            if ($requestMethod === 'POST') handlePOSItemCreate($auth);
+            else header('Location: /pos');
+            break;
+            
+        case '/pos/item/update':
+            if ($requestMethod === 'POST') handlePOSItemUpdate($auth);
+            else header('Location: /pos');
+            break;
+        
         // ========== Placeholder Routes ==========
         case '/reports':
             renderComingSoonPage($auth, ucfirst(substr($requestUri, 1)));
@@ -1080,5 +1100,93 @@ function handleSettingsTimes(Auth $auth): void
     }
     
     header('Location: /settings?tab=times');
+    exit;
+}
+
+// ============================================
+// POS Functions
+// ============================================
+
+function renderPOSPage(Auth $auth): void
+{
+    $user = $auth->user();
+    $csrfToken = $auth->csrfToken();
+    
+    $handler = new \HotelOS\Handlers\POSHandler();
+    
+    $selectedCategory = $_GET['category'] ?? '';
+    $items = $handler->getItems($selectedCategory ?: null);
+    $inHouseGuests = $handler->getInHouseGuests();
+    $categoryCounts = $handler->getCategoryCounts();
+    
+    $success = $_SESSION['flash_success'] ?? null;
+    $error = $_SESSION['flash_error'] ?? null;
+    unset($_SESSION['flash_success'], $_SESSION['flash_error']);
+    
+    $title = 'POS & Extras';
+    $currentRoute = 'pos';
+    $breadcrumbs = [['label' => 'POS & Extras']];
+    
+    ob_start();
+    include VIEWS_PATH . '/pos/index.php';
+    $content = ob_get_clean();
+    
+    include VIEWS_PATH . '/layouts/app.php';
+}
+
+function handlePOSCharge(Auth $auth): void
+{
+    $handler = new \HotelOS\Handlers\POSHandler();
+    
+    try {
+        $bookingId = (int)($_POST['booking_id'] ?? 0);
+        $itemId = (int)($_POST['item_id'] ?? 0);
+        $quantity = (int)($_POST['quantity'] ?? 1);
+        $notes = $_POST['notes'] ?? null;
+        
+        if (!$bookingId) {
+            throw new \InvalidArgumentException('Please select a guest');
+        }
+        
+        $handler->addCharge($bookingId, $itemId, $quantity, (int)$auth->user()['id'], $notes);
+        $_SESSION['flash_success'] = 'Charge added to room bill';
+    } catch (\Throwable $e) {
+        $_SESSION['flash_error'] = $e->getMessage();
+    }
+    
+    header('Location: /pos');
+    exit;
+}
+
+function handlePOSItemCreate(Auth $auth): void
+{
+    $handler = new \HotelOS\Handlers\POSHandler();
+    
+    try {
+        $handler->createItem($_POST);
+        $_SESSION['flash_success'] = 'Item created successfully';
+    } catch (\Throwable $e) {
+        $_SESSION['flash_error'] = $e->getMessage();
+    }
+    
+    header('Location: /pos');
+    exit;
+}
+
+function handlePOSItemUpdate(Auth $auth): void
+{
+    $handler = new \HotelOS\Handlers\POSHandler();
+    
+    try {
+        $id = (int)($_POST['id'] ?? 0);
+        if (!$id) throw new \InvalidArgumentException('Invalid item ID');
+        
+        $handler->updateItem($id, $_POST);
+        $_SESSION['flash_success'] = 'Item updated successfully';
+    } catch (\Throwable $e) {
+        $_SESSION['flash_error'] = $e->getMessage();
+    }
+    
+    header('Location: /pos');
     exit;
 }
