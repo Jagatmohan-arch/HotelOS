@@ -164,18 +164,22 @@ class DashboardHandler
      */
     public function getTodayArrivalsDetail(): array
     {
+        $tenantId = TenantContext::getId();
         return $this->db->query(
             "SELECT b.*, 
                     g.first_name, g.last_name, g.phone as guest_phone,
                     r.room_number,
                     rt.name as room_type
              FROM bookings b
-             JOIN guests g ON b.guest_id = g.id
-             LEFT JOIN rooms r ON b.room_id = r.id
-             JOIN room_types rt ON b.room_type_id = rt.id
+             JOIN guests g ON b.guest_id = g.id AND g.tenant_id = :tenant_id1
+             LEFT JOIN rooms r ON b.room_id = r.id AND r.tenant_id = :tenant_id2
+             JOIN room_types rt ON b.room_type_id = rt.id AND rt.tenant_id = :tenant_id3
              WHERE DATE(b.check_in_date) = CURDATE()
              AND b.status IN ('confirmed', 'pending')
-             ORDER BY b.check_in_time"
+             AND b.tenant_id = :tenant_id4
+             ORDER BY b.check_in_time",
+            ['tenant_id1' => $tenantId, 'tenant_id2' => $tenantId, 'tenant_id3' => $tenantId, 'tenant_id4' => $tenantId],
+            enforceTenant: false
         );
     }
     
@@ -184,6 +188,7 @@ class DashboardHandler
      */
     public function getTodayDeparturesDetail(): array
     {
+        $tenantId = TenantContext::getId();
         return $this->db->query(
             "SELECT b.*, 
                     g.first_name, g.last_name, g.phone as guest_phone,
@@ -191,12 +196,15 @@ class DashboardHandler
                     rt.name as room_type,
                     b.balance_amount
              FROM bookings b
-             JOIN guests g ON b.guest_id = g.id
-             LEFT JOIN rooms r ON b.room_id = r.id
-             JOIN room_types rt ON b.room_type_id = rt.id
+             JOIN guests g ON b.guest_id = g.id AND g.tenant_id = :tenant_id1
+             LEFT JOIN rooms r ON b.room_id = r.id AND r.tenant_id = :tenant_id2
+             JOIN room_types rt ON b.room_type_id = rt.id AND rt.tenant_id = :tenant_id3
              WHERE DATE(b.check_out_date) = CURDATE()
              AND b.status = 'checked_in'
-             ORDER BY b.check_out_time"
+             AND b.tenant_id = :tenant_id4
+             ORDER BY b.check_out_time",
+            ['tenant_id1' => $tenantId, 'tenant_id2' => $tenantId, 'tenant_id3' => $tenantId, 'tenant_id4' => $tenantId],
+            enforceTenant: false
         );
     }
     
