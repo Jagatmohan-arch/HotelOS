@@ -4,8 +4,6 @@
  * Visual room status board with quick toggle buttons
  */
 
-declare(strict_types=1);
-
 $pageTitle = 'Housekeeping | HotelOS';
 $activeNav = 'housekeeping';
 
