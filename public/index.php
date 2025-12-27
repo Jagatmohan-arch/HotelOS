@@ -13,15 +13,28 @@ error_reporting(E_ALL);
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
 
-// Define base paths
-define('BASE_PATH', dirname(__DIR__));
-define('PUBLIC_PATH', __DIR__);
-define('CONFIG_PATH', BASE_PATH . '/config');
-define('CORE_PATH', BASE_PATH . '/core');
-define('VIEWS_PATH', BASE_PATH . '/views');
-define('HANDLERS_PATH', BASE_PATH . '/handlers');
-define('CACHE_PATH', BASE_PATH . '/cache');
-define('LOGS_PATH', BASE_PATH . '/logs');
+// Define base paths - Works whether accessed directly or via root/index.php
+// When accessed via root index.php, __DIR__ is 'public', so dirname(__DIR__) = root
+// When accessed directly on server with correct doc root, it also works
+if (!defined('BASE_PATH')) {
+    // Check if we're in public folder or root
+    if (basename(__DIR__) === 'public') {
+        define('BASE_PATH', dirname(__DIR__));
+    } else {
+        define('BASE_PATH', __DIR__);
+    }
+}
+if (!defined('PUBLIC_PATH')) {
+    define('PUBLIC_PATH', BASE_PATH . '/public');
+}
+if (!defined('CONFIG_PATH')) {
+    define('CONFIG_PATH', BASE_PATH . '/config');
+    define('CORE_PATH', BASE_PATH . '/core');
+    define('VIEWS_PATH', BASE_PATH . '/views');
+    define('HANDLERS_PATH', BASE_PATH . '/handlers');
+    define('CACHE_PATH', BASE_PATH . '/cache');
+    define('LOGS_PATH', BASE_PATH . '/logs');
+}
 
 // Autoload core classes
 spl_autoload_register(function (string $class): void {
