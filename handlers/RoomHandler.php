@@ -307,4 +307,35 @@ class RoomHandler
             'blocked' => ['label' => 'Blocked', 'color' => 'gray', 'icon' => 'ban'],
         ];
     }
+    
+    /**
+     * Get room counts by status
+     */
+    public function getStatusCounts(): array
+    {
+        $tenantId = TenantContext::getId();
+        
+        $results = $this->db->query(
+            "SELECT status, COUNT(*) as count 
+             FROM rooms 
+             WHERE is_active = 1 AND tenant_id = :tenant_id
+             GROUP BY status",
+            ['tenant_id' => $tenantId],
+            enforceTenant: false
+        );
+        
+        $counts = [
+            'available' => 0,
+            'occupied' => 0,
+            'reserved' => 0,
+            'maintenance' => 0,
+            'blocked' => 0
+        ];
+        
+        foreach ($results as $row) {
+            $counts[$row['status']] = (int)$row['count'];
+        }
+        
+        return $counts;
+    }
 }
