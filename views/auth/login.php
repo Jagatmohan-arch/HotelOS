@@ -41,11 +41,8 @@ $csrfToken = $csrfToken ?? '';
         
         <!-- Login Form -->
         <form 
-            x-data="loginForm" 
-            @submit.prevent="submit"
             method="POST" 
             action="/login"
-            novalidate
         >
             <!-- CSRF Token -->
             <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken) ?>">
@@ -66,8 +63,6 @@ $csrfToken = $csrfToken ?? '';
                         type="email" 
                         id="email" 
                         name="email"
-                        x-model="email"
-                        :class="{ 'form-input--error': errors.email }"
                         class="form-input"
                         placeholder="you@hotel.com"
                         autocomplete="email"
@@ -84,25 +79,14 @@ $csrfToken = $csrfToken ?? '';
                 <label for="password" class="form-label">Password</label>
                 <div class="input-wrapper">
                     <input 
-                        :type="showPassword ? 'text' : 'password'" 
+                        type="password" 
                         id="password" 
                         name="password"
-                        x-model="password"
-                        :class="{ 'form-input--error': errors.password }"
                         class="form-input"
                         placeholder="••••••••"
                         autocomplete="current-password"
                         required
                     >
-                    <button 
-                        type="button" 
-                        class="input-toggle"
-                        @click="togglePassword"
-                        :aria-label="showPassword ? 'Hide password' : 'Show password'"
-                    >
-                        <i x-show="!showPassword" data-lucide="eye" class="w-5 h-5"></i>
-                        <i x-show="showPassword" data-lucide="eye-off" class="w-5 h-5"></i>
-                    </button>
                 </div>
                 <template x-if="errors.password">
                     <p class="form-error" x-text="errors.password"></p>
