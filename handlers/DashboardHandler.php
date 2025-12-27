@@ -134,13 +134,16 @@ class DashboardHandler
      */
     public function getRoomsForGrid(): array
     {
+        $tenantId = TenantContext::getId();
         return $this->db->query(
             "SELECT r.id, r.room_number, r.status, r.housekeeping_status,
                     r.floor, rt.name as room_type, rt.code as room_type_code
              FROM rooms r
-             JOIN room_types rt ON r.room_type_id = rt.id
-             WHERE r.is_active = 1
-             ORDER BY r.floor, r.room_number"
+             JOIN room_types rt ON r.room_type_id = rt.id AND rt.tenant_id = :tenant_id
+             WHERE r.is_active = 1 AND r.tenant_id = :tenant_id2
+             ORDER BY r.floor, r.room_number",
+            ['tenant_id' => $tenantId, 'tenant_id2' => $tenantId],
+            enforceTenant: false  // Manual tenant filter to avoid ambiguity
         );
     }
     
