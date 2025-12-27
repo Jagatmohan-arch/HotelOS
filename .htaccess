@@ -1,5 +1,27 @@
-# HotelOS Root Security Rules
-# Prevents direct access to sensitive directories
+# HotelOS Root .htaccess
+# URL Rewriting + Security
+
+# ============================================
+# URL REWRITING (Required for routing)
+# ============================================
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Force HTTPS (uncomment if needed)
+    # RewriteCond %{HTTPS} off
+    # RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+    
+    # Don't rewrite if file or directory exists
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    
+    # Route everything to index.php
+    RewriteRule ^(.*)$ index.php [QSA,L]
+</IfModule>
+
+# ============================================
+# SECURITY
+# ============================================
 
 # Disable directory browsing
 Options -Indexes
