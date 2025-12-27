@@ -33,7 +33,12 @@ class HousekeepingHandler
         $tenantId = TenantContext::getId();
         
         $where = ['r.tenant_id = :tenant_id', 'r.is_active = 1'];
-        $params = ['tenant_id' => $tenantId];
+        $params = [
+            'tenant_id' => $tenantId,
+            'tenant_id2' => $tenantId,
+            'tenant_id3' => $tenantId,
+            'tenant_id4' => $tenantId
+        ];
         
         if ($floor) {
             $where[] = 'r.floor = :floor';
@@ -53,11 +58,11 @@ class HousekeepingHandler
                     b.guest_id, CONCAT(g.first_name, ' ', g.last_name) as guest_name,
                     b.check_out_date
              FROM rooms r
-             JOIN room_types rt ON r.room_type_id = rt.id AND rt.tenant_id = :tenant_id
+             JOIN room_types rt ON r.room_type_id = rt.id AND rt.tenant_id = :tenant_id2
              LEFT JOIN bookings b ON b.room_id = r.id 
-                AND b.tenant_id = :tenant_id 
+                AND b.tenant_id = :tenant_id3 
                 AND b.status = 'checked_in'
-             LEFT JOIN guests g ON b.guest_id = g.id AND g.tenant_id = :tenant_id
+             LEFT JOIN guests g ON b.guest_id = g.id AND g.tenant_id = :tenant_id4
              WHERE {$whereClause}
              ORDER BY r.floor, r.room_number",
             $params,
