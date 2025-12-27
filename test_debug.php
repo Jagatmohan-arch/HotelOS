@@ -19,6 +19,35 @@ define('VIEWS_PATH', BASE_PATH . '/views');
 define('HANDLERS_PATH', BASE_PATH . '/handlers');
 define('LOGS_PATH', BASE_PATH . '/logs');
 
+// AUTOLOADER - Same as public/index.php
+spl_autoload_register(function (string $class): void {
+    // HotelOS\Core namespace
+    $corePrefix = 'HotelOS\\Core\\';
+    $coreDir = CORE_PATH . '/';
+    
+    if (strncmp($corePrefix, $class, strlen($corePrefix)) === 0) {
+        $relativeClass = substr($class, strlen($corePrefix));
+        $file = $coreDir . str_replace('\\', '/', $relativeClass) . '.php';
+        if (file_exists($file)) {
+            require $file;
+        }
+        return;
+    }
+    
+    // HotelOS\Handlers namespace
+    $handlersPrefix = 'HotelOS\\Handlers\\';
+    $handlersDir = HANDLERS_PATH . '/';
+    
+    if (strncmp($handlersPrefix, $class, strlen($handlersPrefix)) === 0) {
+        $relativeClass = substr($class, strlen($handlersPrefix));
+        $file = $handlersDir . str_replace('\\', '/', $relativeClass) . '.php';
+        if (file_exists($file)) {
+            require $file;
+        }
+        return;
+    }
+});
+
 echo "<h1>Login Render Test</h1>";
 echo "<pre>";
 echo "BASE_PATH: " . BASE_PATH . "\n";
