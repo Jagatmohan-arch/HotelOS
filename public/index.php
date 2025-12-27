@@ -14,19 +14,35 @@ ini_set('display_errors', '1');  // TEMPORARY - TURN OFF IN PRODUCTION
 ini_set('log_errors', '1');
 
 // Define base paths - Works whether accessed directly or via root/index.php
-// When accessed via root index.php, __DIR__ is 'public', so dirname(__DIR__) = root
-// When accessed directly on server with correct doc root, it also works
+// On shared hosting: document root = project root (not public/)
+// On local/proper setup: document root = public/
 if (!defined('BASE_PATH')) {
-    // Check if we're in public folder or root
-    if (basename(__DIR__) === 'public') {
-        define('BASE_PATH', dirname(__DIR__));
+    $currentDir = __DIR__;
+    
+    // Check if we're in the public subfolder (proper setup)
+    if (basename($currentDir) === 'public') {
+        define('BASE_PATH', dirname($currentDir));
     } else {
-        define('BASE_PATH', __DIR__);
+        // We're in the root folder (shared hosting OR included from root/index.php)
+        // Check if config folder exists in current dir (we're at project root)
+        if (is_dir($currentDir . '/config')) {
+            define('BASE_PATH', $currentDir);
+        } else {
+            // Fallback to parent dir
+            define('BASE_PATH', dirname($currentDir));
+        }
     }
 }
+
 if (!defined('PUBLIC_PATH')) {
-    define('PUBLIC_PATH', BASE_PATH . '/public');
+    // On shared hosting, public folder might be same as root
+    if (is_dir(BASE_PATH . '/public')) {
+        define('PUBLIC_PATH', BASE_PATH . '/public');
+    } else {
+        define('PUBLIC_PATH', BASE_PATH);
+    }
 }
+
 if (!defined('CONFIG_PATH')) {
     define('CONFIG_PATH', BASE_PATH . '/config');
     define('CORE_PATH', BASE_PATH . '/core');
