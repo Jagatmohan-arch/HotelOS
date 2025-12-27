@@ -104,6 +104,18 @@ class DashboardHandler
     }
     
     /**
+     * Get count of rooms needing cleaning
+     */
+    public function getDirtyRoomsCount(): int
+    {
+        $result = $this->db->queryOne(
+            "SELECT COUNT(*) as count FROM rooms 
+             WHERE housekeeping_status = 'dirty' AND is_active = 1"
+        );
+        return (int) ($result['count'] ?? 0);
+    }
+    
+    /**
      * Get room status summary for grid display
      */
     public function getRoomStatusSummary(): array

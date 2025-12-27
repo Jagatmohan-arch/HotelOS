@@ -555,6 +555,12 @@ function renderDashboard(Auth $auth): void
     $rooms = $dashboardHandler->getRoomsForGrid();
     $statusSummary = $roomHandler->getStatusCounts();
     
+    // Additional data for Today's Activity section
+    $todayDepartures = $dashboardHandler->getTodayDepartures();
+    $dirtyRooms = $dashboardHandler->getDirtyRoomsCount();
+    $arrivalsDetail = $dashboardHandler->getTodayArrivalsDetail();
+    $departuresDetail = $dashboardHandler->getTodayDeparturesDetail();
+    
     $title = 'Dashboard';
     $currentRoute = 'dashboard';
     $breadcrumbs = [];

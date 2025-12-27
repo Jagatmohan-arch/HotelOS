@@ -27,6 +27,12 @@ $statusSummary = $statusSummary ?? [
     'reserved' => 0,
     'maintenance' => 0,
 ];
+
+// New variables from controller
+$todayDepartures = $todayDepartures ?? 0;
+$dirtyRooms = $dirtyRooms ?? 0;
+$arrivalsDetail = $arrivalsDetail ?? [];
+$departuresDetail = $departuresDetail ?? [];
 ?>
 
 <!-- Dashboard Content -->
@@ -42,7 +48,7 @@ $statusSummary = $statusSummary ?? [
                 <i data-lucide="download" class="w-4 h-4"></i>
                 <span class="hidden sm:inline">Export</span>
             </button>
-            <a href="/bookings/new" class="btn btn--primary">
+            <a href="/bookings/create" class="btn btn--primary">
                 <i data-lucide="plus" class="w-4 h-4"></i>
                 New Booking
             </a>
@@ -130,15 +136,15 @@ $statusSummary = $statusSummary ?? [
     <div class="glass-card p-4 mb-6">
         <h2 class="text-sm font-semibold text-slate-300 mb-3">Quick Actions</h2>
         <div class="flex flex-wrap gap-2">
-            <a href="/guests/check-in" class="btn btn--secondary">
+            <a href="/bookings" class="btn btn--secondary">
                 <i data-lucide="log-in" class="w-4 h-4 text-emerald-400"></i>
                 Check-in Guest
             </a>
-            <a href="/guests/check-out" class="btn btn--secondary">
+            <a href="/bookings" class="btn btn--secondary">
                 <i data-lucide="log-out" class="w-4 h-4 text-orange-400"></i>
                 Check-out
             </a>
-            <a href="/housekeeping" class="btn btn--secondary">
+            <a href="/rooms" class="btn btn--secondary">
                 <i data-lucide="sparkles" class="w-4 h-4 text-blue-400"></i>
                 Housekeeping
             </a>
@@ -195,8 +201,8 @@ $statusSummary = $statusSummary ?? [
                         <div 
                             class="room-box room-box--<?= htmlspecialchars($room['status']) ?>"
                             title="<?= htmlspecialchars($room['room_type']) ?>"
-                            x-data
-                            @click="window.location.href='/rooms/<?= $room['id'] ?>'"
+                            style="cursor: pointer;"
+                            onclick="window.location.href='/rooms'"
                         >
                             <span class="text-base font-bold"><?= htmlspecialchars($room['room_number']) ?></span>
                             <span class="text-[10px] opacity-70"><?= htmlspecialchars($room['room_type_code']) ?></span>
@@ -228,9 +234,13 @@ $statusSummary = $statusSummary ?? [
                     <div class="flex items-center gap-2 mb-2">
                         <i data-lucide="log-out" class="w-4 h-4 text-orange-400"></i>
                         <span class="text-xs font-medium text-slate-300">Expected Departures</span>
-                        <span class="ml-auto badge badge--yellow">0</span>
+                        <span class="ml-auto badge badge--yellow"><?= $todayDepartures ?></span>
                     </div>
-                    <p class="text-xs text-slate-500 pl-6">No departures today</p>
+                    <?php if ($todayDepartures === 0): ?>
+                        <p class="text-xs text-slate-500 pl-6">No departures today</p>
+                    <?php else: ?>
+                        <a href="/bookings" class="text-xs text-orange-400 pl-6 hover:underline">View departures →</a>
+                    <?php endif; ?>
                 </div>
                 
                 <!-- Housekeeping -->
@@ -238,9 +248,13 @@ $statusSummary = $statusSummary ?? [
                     <div class="flex items-center gap-2 mb-2">
                         <i data-lucide="sparkles" class="w-4 h-4 text-blue-400"></i>
                         <span class="text-xs font-medium text-slate-300">Rooms to Clean</span>
-                        <span class="ml-auto badge badge--blue">0</span>
+                        <span class="ml-auto badge badge--<?= $dirtyRooms > 0 ? 'red' : 'blue' ?>"><?= $dirtyRooms ?></span>
                     </div>
-                    <p class="text-xs text-slate-500 pl-6">All rooms clean</p>
+                    <?php if ($dirtyRooms === 0): ?>
+                        <p class="text-xs text-slate-500 pl-6">All rooms clean</p>
+                    <?php else: ?>
+                        <a href="/rooms" class="text-xs text-blue-400 pl-6 hover:underline"><?= $dirtyRooms ?> room(s) need cleaning →</a>
+                    <?php endif; ?>
                 </div>
             </div>
             
