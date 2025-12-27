@@ -144,8 +144,9 @@ class TenantContext
     /**
      * Load tenant from database by ID
      */
-    public static function loadById(int $tenantId): bool
+    public static function loadById(int|string $tenantId): bool
     {
+        $tenantId = (int) $tenantId;  // Ensure int for database query
         $db = Database::getInstance();
         
         // Query without tenant filter since we're loading the tenant itself
