@@ -29,3 +29,4 @@ node_modules/
 *.tmp
 *.bak
 debug.php
+.github/
