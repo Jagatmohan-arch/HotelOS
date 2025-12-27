@@ -426,7 +426,6 @@ $breadcrumbs = $breadcrumbs ?? [];
 <body 
     x-data="{ sidebarCollapsed: localStorage.getItem('sidebarExpanded') === 'false' }"
     :class="{ 'sidebar-collapsed': sidebarCollapsed }"
-    @toggle-mobile-sidebar.window="$refs.sidebar.mobileOpen = true"
 >
     <div class="app-layout">
         <!-- Sidebar -->

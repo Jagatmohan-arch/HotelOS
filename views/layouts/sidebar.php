@@ -81,6 +81,7 @@ $navItems = [
         }
     }"
     @keydown.escape.window="mobileOpen = false"
+    @toggle-mobile-sidebar.window="mobileOpen = true"
     class="sidebar-container"
 >
     <!-- Mobile Overlay -->

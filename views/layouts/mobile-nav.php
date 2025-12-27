@@ -17,7 +17,7 @@ $mobileNavItems = [
     ['route' => 'dashboard', 'label' => 'Home', 'icon' => 'home', 'href' => '/dashboard'],
     ['route' => 'rooms', 'label' => 'Rooms', 'icon' => 'bed-double', 'href' => '/rooms'],
     ['route' => 'add', 'label' => 'Quick', 'icon' => 'plus', 'href' => '#', 'isAction' => true],
-    ['route' => 'guests', 'label' => 'Guests', 'icon' => 'users', 'href' => '/guests'],
+    ['route' => 'bookings', 'label' => 'Bookings', 'icon' => 'calendar-check', 'href' => '/bookings'],
     ['route' => 'menu', 'label' => 'Menu', 'icon' => 'menu', 'href' => '#', 'isMenu' => true],
 ];
 ?>
@@ -42,41 +42,41 @@ $mobileNavItems = [
     
     <div 
         x-show="showQuickMenu"
-        x-transition:enter="transition ease-out duration-200"
-        x-transition:enter-start="opacity-0 translate-y-full"
-        x-transition:enter-end="opacity-100 translate-y-0"
-        x-transition:leave="transition ease-in duration-150"
-        x-transition:leave-start="opacity-100 translate-y-0"
-        x-transition:leave-end="opacity-0 translate-y-full"
+        x-transition:enter="transition ease-out duration-300"
+        x-transition:enter-start="opacity-0 translate-y-8 scale-95"
+        x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+        x-transition:leave="transition ease-in duration-200"
+        x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+        x-transition:leave-end="opacity-0 translate-y-8 scale-95"
         class="fixed bottom-20 left-4 right-4 z-50 bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl overflow-hidden"
     >
         <div class="p-4 border-b border-slate-700">
             <h3 class="text-sm font-semibold text-white">Quick Actions</h3>
         </div>
         <div class="grid grid-cols-3 gap-1 p-2">
-            <a href="/bookings/new" class="quick-action-btn">
+            <a href="/bookings/create" class="quick-action-btn">
                 <div class="quick-action-icon bg-emerald-500/20 text-emerald-400">
                     <i data-lucide="calendar-plus" class="w-5 h-5"></i>
                 </div>
                 <span class="text-xs">New Booking</span>
             </a>
-            <a href="/guests/check-in" class="quick-action-btn">
+            <a href="/bookings" class="quick-action-btn">
                 <div class="quick-action-icon bg-cyan-500/20 text-cyan-400">
                     <i data-lucide="log-in" class="w-5 h-5"></i>
                 </div>
                 <span class="text-xs">Check-in</span>
             </a>
-            <a href="/guests/check-out" class="quick-action-btn">
+            <a href="/bookings" class="quick-action-btn">
                 <div class="quick-action-icon bg-orange-500/20 text-orange-400">
                     <i data-lucide="log-out" class="w-5 h-5"></i>
                 </div>
                 <span class="text-xs">Check-out</span>
             </a>
-            <a href="/guests/new" class="quick-action-btn">
+            <a href="/rooms" class="quick-action-btn">
                 <div class="quick-action-icon bg-purple-500/20 text-purple-400">
-                    <i data-lucide="user-plus" class="w-5 h-5"></i>
+                    <i data-lucide="bed-double" class="w-5 h-5"></i>
                 </div>
-                <span class="text-xs">New Guest</span>
+                <span class="text-xs">Manage Rooms</span>
             </a>
             <a href="/housekeeping" class="quick-action-btn">
                 <div class="quick-action-icon bg-blue-500/20 text-blue-400">
@@ -84,11 +84,11 @@ $mobileNavItems = [
                 </div>
                 <span class="text-xs">Housekeeping</span>
             </a>
-            <a href="/payments/collect" class="quick-action-btn">
+            <a href="/pos" class="quick-action-btn">
                 <div class="quick-action-icon bg-yellow-500/20 text-yellow-400">
                     <i data-lucide="indian-rupee" class="w-5 h-5"></i>
                 </div>
-                <span class="text-xs">Collect Pay</span>
+                <span class="text-xs">POS</span>
             </a>
         </div>
     </div>
