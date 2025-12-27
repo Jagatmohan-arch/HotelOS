@@ -173,6 +173,14 @@ class Database
     {
         return $this->pdo->inTransaction();
     }
+    
+    /**
+     * Get last insert ID
+     */
+    public function lastInsertId(): int
+    {
+        return (int) $this->pdo->lastInsertId();
+    }
 
     /**
      * Inject tenant_id filter into WHERE clause
