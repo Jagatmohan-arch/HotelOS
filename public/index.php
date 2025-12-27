@@ -345,9 +345,24 @@ try {
     }
     
     // Protected routes - require authentication
-    $protectedRoutes = ['/dashboard', '/room-types', '/rooms', '/guests', '/bookings', '/settings'];
+    $protectedRoutes = ['/dashboard', '/room-types', '/rooms', '/guests', '/bookings', '/settings', '/housekeeping'];
     if (in_array($requestUri, $protectedRoutes) && !$auth->check()) {
         header('Location: /');
+        exit;
+    }
+    
+    // Dynamic routes (before switch)
+    // Invoice: /bookings/{id}/invoice
+    if (preg_match('#^/bookings/(\d+)/invoice$#', $requestUri, $matches)) {
+        if (!$auth->check()) { header('Location: /'); exit; }
+        renderInvoicePage($auth, (int)$matches[1]);
+        exit;
+    }
+    
+    // Cancel booking: /bookings/{id}/cancel (POST)
+    if (preg_match('#^/bookings/(\d+)/cancel$#', $requestUri, $matches) && $requestMethod === 'POST') {
+        if (!$auth->check()) { header('Location: /'); exit; }
+        handleBookingCancel($auth, (int)$matches[1]);
         exit;
     }
     
@@ -933,4 +948,38 @@ function renderHousekeepingPage(Auth $auth): void
     $content = ob_get_clean();
     
     include VIEWS_PATH . '/layouts/app.php';
+}
+
+// ============================================
+// Invoice Functions
+// ============================================
+
+function renderInvoicePage(Auth $auth, int $bookingId): void
+{
+    $handler = new \HotelOS\Handlers\InvoiceHandler();
+    $invoice = $handler->getInvoiceData($bookingId);
+    
+    if (!$invoice) {
+        http_response_code(404);
+        echo '<h1>Invoice not found</h1>';
+        return;
+    }
+    
+    // Render standalone (no layout)
+    include VIEWS_PATH . '/bookings/invoice.php';
+}
+
+function handleBookingCancel(Auth $auth, int $bookingId): void
+{
+    $handler = new \HotelOS\Handlers\BookingHandler();
+    $result = $handler->cancel($bookingId, $_POST['reason'] ?? 'Cancelled by user');
+    
+    if ($result['success']) {
+        $_SESSION['flash_success'] = 'Booking cancelled successfully';
+    } else {
+        $_SESSION['flash_error'] = $result['error'] ?? 'Failed to cancel booking';
+    }
+    
+    header('Location: /bookings');
+    exit;
 }

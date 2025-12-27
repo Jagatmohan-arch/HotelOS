@@ -458,4 +458,44 @@ class BookingHandler
         $data[8] = chr(ord($data[8]) & 0x3f | 0x80);
         return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
     }
+    
+    /**
+     * Cancel a booking
+     * 
+     * @param int $id Booking ID
+     * @param string $reason Cancellation reason
+     * @return array Result
+     */
+    public function cancel(int $id, string $reason = ''): array
+    {
+        $booking = $this->getById($id);
+        
+        if (!$booking) {
+            return ['success' => false, 'error' => 'Booking not found'];
+        }
+        
+        if ($booking['status'] === 'checked_out' || $booking['status'] === 'cancelled') {
+            return ['success' => false, 'error' => 'Cannot cancel: booking is already ' . $booking['status']];
+        }
+        
+        // Update booking status
+        $this->db->execute(
+            "UPDATE bookings SET 
+             status = 'cancelled', 
+             cancelled_at = NOW(),
+             cancellation_reason = :reason
+             WHERE id = :id",
+            ['id' => $id, 'reason' => $reason]
+        );
+        
+        // Free up the room if assigned
+        if ($booking['room_id']) {
+            $this->db->execute(
+                "UPDATE rooms SET status = 'available' WHERE id = :id",
+                ['id' => $booking['room_id']]
+            );
+        }
+        
+        return ['success' => true];
+    }
 }
