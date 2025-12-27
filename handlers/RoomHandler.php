@@ -236,32 +236,6 @@ class RoomHandler
     }
     
     /**
-     * Get room status counts for dashboard
-     */
-    public function getStatusCounts(): array
-    {
-        $results = $this->db->query(
-            "SELECT status, COUNT(*) as count FROM rooms 
-             WHERE is_active = 1 
-             GROUP BY status"
-        );
-        
-        $counts = [
-            'available' => 0,
-            'occupied' => 0,
-            'reserved' => 0,
-            'maintenance' => 0,
-            'blocked' => 0,
-        ];
-        
-        foreach ($results as $row) {
-            $counts[$row['status']] = (int) $row['count'];
-        }
-        
-        return $counts;
-    }
-    
-    /**
      * Get available rooms by type
      */
     public function getAvailableByType(int $roomTypeId): array
