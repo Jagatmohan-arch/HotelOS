@@ -1,11 +1,12 @@
 <?php
 /**
- * HotelOS - Login View Component
- * Modern floating design with dynamic background
+ * HotelOS - Login View
+ * Hotel Operator System - Multi-role login with Staff/Owner tabs
  */
 
 $error = $error ?? null;
 $csrfToken = $csrfToken ?? '';
+$loginType = $_GET['type'] ?? 'owner';
 ?>
 
 <div class="login-page">
@@ -32,14 +33,38 @@ $csrfToken = $csrfToken ?? '';
                     <circle cx="16" cy="11" r="0.5" fill="currentColor"/>
                 </svg>
             </div>
-            <h1 class="brand-name">HotelOS</h1>
-            <p class="brand-tagline">Next-Gen Property Management</p>
+            <h1 class="brand-name">Hotel<span class="highlight">OS</span></h1>
+            <p class="brand-tagline">Hotel Operator System</p>
+        </div>
+        
+        <!-- Login Type Tabs -->
+        <div class="login-tabs animate-slideUp">
+            <a href="?type=owner" class="tab <?= $loginType === 'owner' ? 'active' : '' ?>">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                </svg>
+                <span>Owner</span>
+            </a>
+            <a href="?type=staff" class="tab <?= $loginType === 'staff' ? 'active' : '' ?>">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+                <span>Staff</span>
+            </a>
         </div>
         
         <!-- Login Form Card -->
-        <div class="login-form-card animate-slideUp">
-            <h2 class="form-title">Welcome Back</h2>
-            <p class="form-subtitle">Enter your credentials to continue</p>
+        <div class="login-form-card animate-slideUp" style="animation-delay: 0.1s;">
+            <h2 class="form-title">
+                <?= $loginType === 'staff' ? 'Staff Login' : 'Owner Login' ?>
+            </h2>
+            <p class="form-subtitle">
+                <?= $loginType === 'staff' ? 'Access your assigned tasks' : 'Manage your property' ?>
+            </p>
             
             <?php if ($error): ?>
             <div class="error-toast">
@@ -52,17 +77,26 @@ $csrfToken = $csrfToken ?? '';
             </div>
             <?php endif; ?>
             
-            <form method="POST" action="/login" class="login-form">
+            <form method="POST" action="/login" class="login-form" autocomplete="off">
                 <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken) ?>">
+                <input type="hidden" name="login_type" value="<?= htmlspecialchars($loginType) ?>">
                 
                 <div class="input-group">
-                    <label for="email">Email</label>
+                    <label for="operator_id">Operator ID</label>
                     <div class="input-field">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                            <polyline points="22,6 12,13 2,6"/>
+                            <rect x="3" y="3" width="18" height="18" rx="2"/>
+                            <circle cx="12" cy="10" r="3"/>
+                            <path d="M7 21v-2a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"/>
                         </svg>
-                        <input type="email" id="email" name="email" placeholder="admin@hotel.com" autocomplete="email" required>
+                        <input 
+                            type="text" 
+                            id="operator_id" 
+                            name="email" 
+                            placeholder="<?= $loginType === 'staff' ? 'staff@hotel.com' : 'owner@hotel.com' ?>"
+                            autocomplete="username"
+                            required
+                        >
                     </div>
                 </div>
                 
@@ -73,7 +107,14 @@ $csrfToken = $csrfToken ?? '';
                             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                             <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                         </svg>
-                        <input type="password" id="password" name="password" placeholder="••••••••" autocomplete="current-password" required>
+                        <input 
+                            type="password" 
+                            id="password" 
+                            name="password" 
+                            placeholder="••••••••" 
+                            autocomplete="current-password" 
+                            required
+                        >
                     </div>
                 </div>
                 
@@ -95,8 +136,24 @@ $csrfToken = $csrfToken ?? '';
             </form>
             
             <div class="form-footer">
-                <span>Need access?</span>
-                <a href="/register" class="link">Contact Administrator</a>
+                <span>New to HotelOS?</span>
+                <a href="/register" class="link">Start 14-Day Free Trial</a>
+            </div>
+        </div>
+        
+        <!-- Features Preview -->
+        <div class="features-preview animate-slideUp" style="animation-delay: 0.2s;">
+            <div class="feature">
+                <span class="feature-icon">📸</span>
+                <span>OCR Check-in</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">🧾</span>
+                <span>GST Billing</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">📊</span>
+                <span>Reports</span>
             </div>
         </div>
         
@@ -117,8 +174,9 @@ $csrfToken = $csrfToken ?? '';
     justify-content: center;
     background: #0a0a1a;
     font-family: 'Inter', -apple-system, sans-serif;
-    overflow: hidden;
+    overflow-x: hidden;
     position: relative;
+    padding: 20px;
 }
 
 /* Animated Background Orbs */
@@ -127,34 +185,34 @@ $csrfToken = $csrfToken ?? '';
     inset: 0;
     pointer-events: none;
     z-index: 0;
+    overflow: hidden;
 }
 
 .orb {
     position: absolute;
     border-radius: 50%;
     filter: blur(80px);
-    opacity: 0.5;
+    opacity: 0.4;
     animation: float 20s ease-in-out infinite;
 }
 
 .orb-1 {
-    width: 400px; height: 400px;
+    width: min(400px, 80vw); height: min(400px, 80vw);
     background: linear-gradient(135deg, #06b6d4, #0891b2);
     top: -10%; left: -10%;
-    animation-delay: 0s;
 }
 
 .orb-2 {
-    width: 300px; height: 300px;
+    width: min(300px, 60vw); height: min(300px, 60vw);
     background: linear-gradient(135deg, #8b5cf6, #6366f1);
     bottom: -5%; right: -5%;
     animation-delay: -7s;
 }
 
 .orb-3 {
-    width: 200px; height: 200px;
+    width: min(200px, 40vw); height: min(200px, 40vw);
     background: linear-gradient(135deg, #10b981, #059669);
-    top: 40%; right: 20%;
+    top: 40%; right: 10%;
     animation-delay: -14s;
 }
 
@@ -171,11 +229,10 @@ $csrfToken = $csrfToken ?? '';
     z-index: 1;
     width: 100%;
     max-width: 420px;
-    padding: 24px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 32px;
+    gap: 20px;
 }
 
 /* Branding */
@@ -184,55 +241,100 @@ $csrfToken = $csrfToken ?? '';
 }
 
 .brand-icon {
-    width: 72px; height: 72px;
-    margin: 0 auto 16px;
+    width: 64px; height: 64px;
+    margin: 0 auto 12px;
     background: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 100%);
-    border-radius: 20px;
+    border-radius: 18px;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 20px 40px -10px rgba(6, 182, 212, 0.4);
+    box-shadow: 0 15px 30px -8px rgba(6, 182, 212, 0.4);
 }
 
 .brand-icon svg {
-    width: 36px; height: 36px;
+    width: 32px; height: 32px;
     color: white;
 }
 
 .brand-name {
-    font-size: 2rem;
+    font-size: 1.75rem;
     font-weight: 700;
     color: white;
     letter-spacing: -0.02em;
 }
 
+.brand-name .highlight {
+    background: linear-gradient(135deg, #06b6d4, #8b5cf6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
 .brand-tagline {
+    color: rgba(255,255,255,0.4);
+    font-size: 0.8rem;
+    margin-top: 2px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+/* Login Tabs */
+.login-tabs {
+    display: flex;
+    gap: 8px;
+    padding: 6px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 280px;
+}
+
+.tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-radius: 12px;
     color: rgba(255,255,255,0.5);
+    text-decoration: none;
     font-size: 0.9rem;
-    margin-top: 4px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.tab:hover {
+    color: rgba(255,255,255,0.8);
+}
+
+.tab.active {
+    background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(139, 92, 246, 0.2));
+    color: #22d3ee;
+    box-shadow: 0 4px 15px -5px rgba(6, 182, 212, 0.3);
 }
 
 /* Form Card */
 .login-form-card {
     width: 100%;
-    padding: 32px;
-    background: rgba(255,255,255,0.03);
+    padding: 28px;
+    background: rgba(255,255,255,0.02);
     backdrop-filter: blur(20px);
     border-radius: 24px;
-    border: 1px solid rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.04);
 }
 
 .form-title {
-    font-size: 1.5rem;
+    font-size: 1.35rem;
     font-weight: 600;
     color: white;
     margin-bottom: 4px;
 }
 
 .form-subtitle {
-    color: rgba(255,255,255,0.5);
-    font-size: 0.875rem;
-    margin-bottom: 24px;
+    color: rgba(255,255,255,0.4);
+    font-size: 0.85rem;
+    margin-bottom: 20px;
 }
 
 /* Error Toast */
@@ -241,24 +343,24 @@ $csrfToken = $csrfToken ?? '';
     align-items: center;
     gap: 10px;
     padding: 12px 16px;
-    background: rgba(239, 68, 68, 0.15);
+    background: rgba(239, 68, 68, 0.12);
     border-radius: 12px;
     color: #fca5a5;
-    font-size: 0.875rem;
-    margin-bottom: 20px;
+    font-size: 0.85rem;
+    margin-bottom: 16px;
 }
 
 /* Input Groups */
 .input-group {
-    margin-bottom: 20px;
+    margin-bottom: 16px;
 }
 
 .input-group label {
     display: block;
-    color: rgba(255,255,255,0.7);
-    font-size: 0.8rem;
+    color: rgba(255,255,255,0.6);
+    font-size: 0.75rem;
     font-weight: 500;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
@@ -268,18 +370,18 @@ $csrfToken = $csrfToken ?? '';
     align-items: center;
     gap: 12px;
     padding: 14px 16px;
-    background: rgba(255,255,255,0.05);
+    background: rgba(255,255,255,0.04);
     border-radius: 14px;
     transition: all 0.2s;
 }
 
 .input-field:focus-within {
-    background: rgba(255,255,255,0.08);
-    box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.3);
+    background: rgba(255,255,255,0.06);
+    box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.25);
 }
 
 .input-field svg {
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.3);
     flex-shrink: 0;
 }
 
@@ -289,11 +391,21 @@ $csrfToken = $csrfToken ?? '';
     border: none;
     outline: none;
     color: white;
-    font-size: 1rem;
+    font-size: 0.95rem;
+    width: 100%;
 }
 
 .input-field input::placeholder {
-    color: rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.25);
+}
+
+/* Autofill fix */
+.input-field input:-webkit-autofill,
+.input-field input:-webkit-autofill:hover,
+.input-field input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px rgba(20, 20, 40, 1) inset !important;
+    -webkit-text-fill-color: white !important;
+    caret-color: white;
 }
 
 /* Form Options */
@@ -301,9 +413,9 @@ $csrfToken = $csrfToken ?? '';
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 10px;
 }
 
 .checkbox-wrap {
@@ -311,18 +423,19 @@ $csrfToken = $csrfToken ?? '';
     align-items: center;
     gap: 8px;
     cursor: pointer;
-    color: rgba(255,255,255,0.6);
-    font-size: 0.875rem;
+    color: rgba(255,255,255,0.5);
+    font-size: 0.85rem;
 }
 
 .checkbox-wrap input {
-    width: 18px; height: 18px;
+    width: 16px; height: 16px;
     accent-color: #06b6d4;
+    cursor: pointer;
 }
 
 .link {
     color: #22d3ee;
-    font-size: 0.875rem;
+    font-size: 0.85rem;
     text-decoration: none;
     font-weight: 500;
     transition: color 0.2s;
@@ -335,12 +448,12 @@ $csrfToken = $csrfToken ?? '';
 /* Submit Button */
 .submit-btn {
     width: 100%;
-    padding: 16px;
+    padding: 14px;
     background: linear-gradient(135deg, #06b6d4, #0891b2);
     border: none;
     border-radius: 14px;
     color: white;
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 600;
     cursor: pointer;
     display: flex;
@@ -348,12 +461,12 @@ $csrfToken = $csrfToken ?? '';
     justify-content: center;
     gap: 8px;
     transition: all 0.3s;
-    box-shadow: 0 10px 30px -10px rgba(6, 182, 212, 0.5);
+    box-shadow: 0 8px 25px -8px rgba(6, 182, 212, 0.5);
 }
 
 .submit-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 15px 40px -10px rgba(6, 182, 212, 0.6);
+    box-shadow: 0 12px 30px -8px rgba(6, 182, 212, 0.6);
 }
 
 .submit-btn:active {
@@ -363,20 +476,44 @@ $csrfToken = $csrfToken ?? '';
 /* Footer */
 .form-footer {
     text-align: center;
-    margin-top: 24px;
-    padding-top: 24px;
-    border-top: 1px solid rgba(255,255,255,0.06);
-    color: rgba(255,255,255,0.5);
-    font-size: 0.875rem;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.4);
+    font-size: 0.85rem;
 }
 
 .form-footer .link {
     margin-left: 4px;
 }
 
-.version {
-    color: rgba(255,255,255,0.3);
+/* Features Preview */
+.features-preview {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.feature {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 20px;
+    color: rgba(255,255,255,0.5);
     font-size: 0.75rem;
+}
+
+.feature-icon {
+    font-size: 0.9rem;
+}
+
+.version {
+    color: rgba(255,255,255,0.2);
+    font-size: 0.7rem;
+    margin-top: 8px;
 }
 
 /* Animations */
@@ -386,85 +523,77 @@ $csrfToken = $csrfToken ?? '';
 
 @keyframes gentleFloat {
     0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-8px); }
+    50% { transform: translateY(-6px); }
 }
 
 .animate-slideUp {
-    animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    opacity: 0;
 }
 
 @keyframes slideUp {
-    from { opacity: 0; transform: translateY(30px); }
+    from { opacity: 0; transform: translateY(20px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* Responsive - Tablet */
+/* Responsive - Tablet & Desktop */
 @media (min-width: 768px) {
     .login-container {
         max-width: 440px;
     }
     
     .brand-icon {
-        width: 80px; height: 80px;
-        border-radius: 24px;
-    }
-    
-    .brand-icon svg {
-        width: 40px; height: 40px;
+        width: 72px; height: 72px;
     }
     
     .brand-name {
-        font-size: 2.25rem;
+        font-size: 2rem;
     }
     
     .login-form-card {
-        padding: 40px;
+        padding: 36px;
     }
 }
 
-/* Responsive - Mobile */
-@media (max-width: 480px) {
-    .login-container {
+/* Responsive - Small Mobile */
+@media (max-width: 380px) {
+    .login-page {
         padding: 16px;
-        gap: 24px;
+    }
+    
+    .login-container {
+        gap: 16px;
     }
     
     .brand-icon {
-        width: 60px; height: 60px;
-        border-radius: 16px;
-    }
-    
-    .brand-icon svg {
-        width: 30px; height: 30px;
+        width: 56px; height: 56px;
     }
     
     .brand-name {
-        font-size: 1.75rem;
+        font-size: 1.5rem;
     }
     
     .login-form-card {
-        padding: 24px;
+        padding: 20px;
         border-radius: 20px;
     }
     
-    .form-title {
-        font-size: 1.25rem;
+    .login-tabs {
+        max-width: 100%;
     }
     
-    .input-field {
-        padding: 12px 14px;
-    }
-    
-    .submit-btn {
-        padding: 14px;
-    }
-}
-
-/* Very small screens */
-@media (max-width: 340px) {
     .form-options {
         flex-direction: column;
         align-items: flex-start;
+    }
+    
+    .features-preview {
+        gap: 8px;
+    }
+    
+    .feature {
+        padding: 6px 10px;
+        font-size: 0.7rem;
     }
 }
 </style>
