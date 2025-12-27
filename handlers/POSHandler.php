@@ -34,7 +34,7 @@ class POSHandler
             $params['category'] = $category;
         }
         
-        $sql .= " ORDER BY category, sort_order, name";
+        $sql .= " ORDER BY category, name";
         
         return $this->db->query($sql, $params);
     }
@@ -58,17 +58,15 @@ class POSHandler
         $tenantId = TenantContext::getId();
         
         $this->db->execute(
-            "INSERT INTO pos_items (tenant_id, category, name, code, description, price, gst_rate, sort_order)
-             VALUES (:tenant_id, :category, :name, :code, :description, :price, :gst_rate, :sort_order)",
+            "INSERT INTO pos_items (tenant_id, category, name, code, price, gst_rate)
+             VALUES (:tenant_id, :category, :name, :code, :price, :gst_rate)",
             [
                 'tenant_id' => $tenantId,
                 'category' => $data['category'] ?? 'other',
                 'name' => trim($data['name']),
                 'code' => strtoupper(trim($data['code'] ?? '')),
-                'description' => trim($data['description'] ?? ''),
                 'price' => (float)($data['price'] ?? 0),
-                'gst_rate' => (float)($data['gst_rate'] ?? 18),
-                'sort_order' => (int)($data['sort_order'] ?? 0)
+                'gst_rate' => (float)($data['gst_rate'] ?? 18)
             ],
             enforceTenant: false
         );
@@ -86,20 +84,16 @@ class POSHandler
              category = :category,
              name = :name,
              code = :code,
-             description = :description,
              price = :price,
-             gst_rate = :gst_rate,
-             sort_order = :sort_order
+             gst_rate = :gst_rate
              WHERE id = :id",
             [
                 'id' => $id,
                 'category' => $data['category'] ?? 'other',
                 'name' => trim($data['name']),
                 'code' => strtoupper(trim($data['code'] ?? '')),
-                'description' => trim($data['description'] ?? ''),
                 'price' => (float)($data['price'] ?? 0),
-                'gst_rate' => (float)($data['gst_rate'] ?? 18),
-                'sort_order' => (int)($data['sort_order'] ?? 0)
+                'gst_rate' => (float)($data['gst_rate'] ?? 18)
             ]
         );
         
