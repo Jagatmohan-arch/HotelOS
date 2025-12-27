@@ -1,7 +1,6 @@
 <?php
 /**
- * Debug test file - DELETE AFTER USE
- * Tests the login page rendering with full error display
+ * Debug test file - Simulates exact router initialization
  */
 error_reporting(E_ALL);
 ini_set('display_errors', '1');
@@ -21,7 +20,6 @@ define('LOGS_PATH', BASE_PATH . '/logs');
 
 // AUTOLOADER - Same as public/index.php
 spl_autoload_register(function (string $class): void {
-    // HotelOS\Core namespace
     $corePrefix = 'HotelOS\\Core\\';
     $coreDir = CORE_PATH . '/';
     
@@ -34,7 +32,6 @@ spl_autoload_register(function (string $class): void {
         return;
     }
     
-    // HotelOS\Handlers namespace
     $handlersPrefix = 'HotelOS\\Handlers\\';
     $handlersDir = HANDLERS_PATH . '/';
     
@@ -48,58 +45,40 @@ spl_autoload_register(function (string $class): void {
     }
 });
 
-echo "<h1>Login Render Test</h1>";
-echo "<pre>";
-echo "BASE_PATH: " . BASE_PATH . "\n";
-echo "VIEWS_PATH: " . VIEWS_PATH . "\n";
-echo "CORE_PATH: " . CORE_PATH . "\n\n";
+use HotelOS\Core\Auth;
 
-// Test 1: Check Auth class
+echo "<h1>Router Debug Test</h1>";
+echo "<pre>";
+
+// Check session
+echo "=== SESSION STATUS ===\n";
+echo "Session Status: " . session_status() . " (0=disabled, 1=none, 2=active)\n";
+
+// Start session like router does
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+echo "After session_start: " . session_status() . "\n";
+echo "Session ID: " . session_id() . "\n";
+echo "Session Data: " . print_r($_SESSION, true) . "\n";
+
+// Now try Auth::getInstance() which is where router crashes
+echo "\n=== AUTH INITIALIZATION ===\n";
 try {
-    echo "=== Loading Auth Class ===\n";
-    require_once CORE_PATH . '/Auth.php';
-    echo "Auth.php loaded\n";
+    $auth = Auth::getInstance();
+    echo "Auth::getInstance() SUCCESS\n";
+    echo "User logged in: " . ($auth->check() ? 'YES' : 'NO') . "\n";
     
-    echo "=== Loading Config ===\n";
-    $appConfig = require CONFIG_PATH . '/app.php';
-    echo "Config loaded\n";
-    
-    echo "=== Getting Auth Instance ===\n";
-    $auth = \HotelOS\Core\Auth::getInstance();
-    echo "Auth instance OK\n";
-    
-    echo "=== CSRF Token ===\n";
-    $csrfToken = $auth->csrfToken();
-    echo "CSRF: " . substr($csrfToken, 0, 20) . "...\n";
-    
-    // Test login.php include
-    echo "\n=== Including views/auth/login.php ===\n";
-    $error = null;
-    $title = 'Login';
-    $bodyClass = 'page-login';
-    
-    ob_start();
-    include VIEWS_PATH . '/auth/login.php';
-    $content = ob_get_clean();
-    echo "login.php included, content length: " . strlen($content) . " bytes\n";
-    
-    // Test base.php include
-    echo "\n=== Including views/layouts/base.php ===\n";
-    ob_start();
-    include VIEWS_PATH . '/layouts/base.php';
-    $output = ob_get_clean();
-    echo "base.php included, output length: " . strlen($output) . " bytes\n";
-    
-    echo "\n=== SUCCESS - All files loaded ===\n";
-    echo "</pre>";
-    
-    // Show actual rendered content
-    echo "\n<hr><h2>Rendered Login Page:</h2>\n";
-    echo $output;
-    
+    if ($auth->check()) {
+        echo "User: " . print_r($auth->user(), true) . "\n";
+    }
 } catch (Throwable $e) {
+    echo "Auth::getInstance() FAILED\n";
     echo "ERROR: " . $e->getMessage() . "\n";
     echo "FILE: " . $e->getFile() . " Line " . $e->getLine() . "\n";
     echo "TRACE:\n" . $e->getTraceAsString() . "\n";
-    echo "</pre>";
 }
+
+echo "\n=== DONE ===\n";
+echo "</pre>";
