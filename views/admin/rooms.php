@@ -12,8 +12,6 @@
  * - $success: Success message
  */
 
-declare(strict_types=1);
-
 $rooms = $rooms ?? [];
 $roomTypes = $roomTypes ?? [];
 $statusCounts = $statusCounts ?? [];
