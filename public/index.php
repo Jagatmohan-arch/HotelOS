@@ -153,6 +153,145 @@ if (str_starts_with($requestUri, '/api/')) {
             exit;
         }
         
+        // ========== Guest APIs (Phase 3) ==========
+        
+        // GET /api/guests/search?q=phone_or_name - Debounced search
+        if ($requestUri === '/api/guests/search' && $requestMethod === 'GET') {
+            requireApiAuth();
+            $query = $_GET['q'] ?? '';
+            $limit = min((int)($_GET['limit'] ?? 5), 10); // Max 10
+            
+            $handler = new \HotelOS\Handlers\GuestHandler();
+            $results = $handler->search($query, $limit);
+            echo json_encode(['success' => true, 'data' => $results]);
+            exit;
+        }
+        
+        // GET /api/guests/{id}
+        if (preg_match('#^/api/guests/(\d+)$#', $requestUri, $matches) && $requestMethod === 'GET') {
+            requireApiAuth();
+            $handler = new \HotelOS\Handlers\GuestHandler();
+            $guest = $handler->getById((int)$matches[1]);
+            
+            if ($guest) {
+                echo json_encode(['success' => true, 'data' => $guest]);
+            } else {
+                http_response_code(404);
+                echo json_encode(['error' => 'Guest not found']);
+            }
+            exit;
+        }
+        
+        // POST /api/guests - Create new guest
+        if ($requestUri === '/api/guests' && $requestMethod === 'POST') {
+            requireApiAuth();
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            
+            $handler = new \HotelOS\Handlers\GuestHandler();
+            
+            // Validate required fields
+            if (empty($data['first_name']) || empty($data['phone'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'First name and phone are required']);
+                exit;
+            }
+            
+            $guestId = $handler->create($data);
+            echo json_encode(['success' => true, 'guest_id' => $guestId]);
+            exit;
+        }
+        
+        // ========== Booking APIs (Phase 3) ==========
+        
+        // GET /api/rooms/available?check_in=X&check_out=Y&room_type_id=Z
+        if ($requestUri === '/api/rooms/available' && $requestMethod === 'GET') {
+            requireApiAuth();
+            
+            $checkIn = $_GET['check_in'] ?? date('Y-m-d');
+            $checkOut = $_GET['check_out'] ?? date('Y-m-d', strtotime('+1 day'));
+            $roomTypeId = !empty($_GET['room_type_id']) ? (int)$_GET['room_type_id'] : null;
+            
+            $handler = new \HotelOS\Handlers\BookingHandler();
+            $rooms = $handler->getAvailableRooms($checkIn, $checkOut, $roomTypeId);
+            echo json_encode(['success' => true, 'data' => $rooms]);
+            exit;
+        }
+        
+        // POST /api/bookings - Create booking
+        if ($requestUri === '/api/bookings' && $requestMethod === 'POST') {
+            requireApiAuth();
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $data['created_by'] = Auth::getInstance()->user()['id'] ?? null;
+            
+            $handler = new \HotelOS\Handlers\BookingHandler();
+            $result = $handler->create($data);
+            
+            if ($result['success']) {
+                echo json_encode($result);
+            } else {
+                http_response_code(400);
+                echo json_encode($result);
+            }
+            exit;
+        }
+        
+        // GET /api/bookings/today-arrivals
+        if ($requestUri === '/api/bookings/today-arrivals' && $requestMethod === 'GET') {
+            requireApiAuth();
+            $handler = new \HotelOS\Handlers\BookingHandler();
+            echo json_encode(['success' => true, 'data' => $handler->getTodayArrivals()]);
+            exit;
+        }
+        
+        // GET /api/bookings/today-departures
+        if ($requestUri === '/api/bookings/today-departures' && $requestMethod === 'GET') {
+            requireApiAuth();
+            $handler = new \HotelOS\Handlers\BookingHandler();
+            echo json_encode(['success' => true, 'data' => $handler->getTodayDepartures()]);
+            exit;
+        }
+        
+        // GET /api/bookings/in-house
+        if ($requestUri === '/api/bookings/in-house' && $requestMethod === 'GET') {
+            requireApiAuth();
+            $handler = new \HotelOS\Handlers\BookingHandler();
+            echo json_encode(['success' => true, 'data' => $handler->getInHouseGuests()]);
+            exit;
+        }
+        
+        // POST /api/bookings/{id}/check-in
+        if (preg_match('#^/api/bookings/(\d+)/check-in$#', $requestUri, $matches) && $requestMethod === 'POST') {
+            requireApiAuth();
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            
+            $handler = new \HotelOS\Handlers\BookingHandler();
+            $result = $handler->checkIn((int)$matches[1], $data['room_id'] ?? null);
+            
+            if ($result['success']) {
+                echo json_encode($result);
+            } else {
+                http_response_code(400);
+                echo json_encode($result);
+            }
+            exit;
+        }
+        
+        // POST /api/bookings/{id}/check-out
+        if (preg_match('#^/api/bookings/(\d+)/check-out$#', $requestUri, $matches) && $requestMethod === 'POST') {
+            requireApiAuth();
+            
+            $handler = new \HotelOS\Handlers\BookingHandler();
+            $result = $handler->checkOut((int)$matches[1]);
+            
+            if ($result['success']) {
+                echo json_encode($result);
+            } else {
+                http_response_code(400);
+                echo json_encode($result);
+            }
+            exit;
+        }
+        
         // 404 for unknown API routes
         http_response_code(404);
         echo json_encode(['error' => 'API endpoint not found']);
