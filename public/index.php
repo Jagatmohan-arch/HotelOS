@@ -388,9 +388,17 @@ try {
             handleRoomDelete($auth);
             break;
         
+        // ========== Bookings (Phase 3 - Front Desk) ==========
+        case '/bookings':
+            renderBookingsPage($auth);
+            break;
+            
+        case '/bookings/create':
+            renderBookingCreatePage($auth);
+            break;
+        
         // ========== Placeholder Routes ==========
         case '/guests':
-        case '/bookings':
         case '/settings':
         case '/reports':
             renderComingSoonPage($auth, ucfirst(substr($requestUri, 1)));
@@ -810,4 +818,49 @@ function handleRoomDelete(Auth $auth): void
     
     header('Location: /rooms');
     exit;
+}
+
+// ============================================
+// Render Functions - Bookings (Phase 3)
+// ============================================
+
+function renderBookingsPage(Auth $auth): void
+{
+    $user = $auth->user();
+    $csrfToken = $auth->csrfToken();
+    
+    $title = 'Front Desk';
+    $currentRoute = 'bookings';
+    $breadcrumbs = [
+        ['label' => 'Front Desk']
+    ];
+    
+    ob_start();
+    include VIEWS_PATH . '/bookings/index.php';
+    $content = ob_get_clean();
+    
+    include VIEWS_PATH . '/layouts/app.php';
+}
+
+function renderBookingCreatePage(Auth $auth): void
+{
+    $user = $auth->user();
+    $csrfToken = $auth->csrfToken();
+    
+    // Get room types for dropdown
+    $roomTypeHandler = new RoomTypeHandler();
+    $roomTypes = $roomTypeHandler->list();
+    
+    $title = 'New Booking';
+    $currentRoute = 'bookings';
+    $breadcrumbs = [
+        ['label' => 'Front Desk', 'url' => '/bookings'],
+        ['label' => 'New Booking']
+    ];
+    
+    ob_start();
+    include VIEWS_PATH . '/bookings/create.php';
+    $content = ob_get_clean();
+    
+    include VIEWS_PATH . '/layouts/app.php';
 }
