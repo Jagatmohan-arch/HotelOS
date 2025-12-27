@@ -27,16 +27,18 @@ class RoomHandler
      */
     public function list(?int $roomTypeId = null, ?string $status = null): array
     {
+        $tenantId = TenantContext::getId();
+        
         $sql = "SELECT r.*, 
                        rt.name as room_type_name, 
                        rt.code as room_type_code,
                        rt.base_rate,
                        rt.gst_rate
                 FROM rooms r
-                JOIN room_types rt ON r.room_type_id = rt.id
-                WHERE r.is_active = 1";
+                JOIN room_types rt ON r.room_type_id = rt.id AND rt.tenant_id = :tenant_id1
+                WHERE r.is_active = 1 AND r.tenant_id = :tenant_id2";
         
-        $params = [];
+        $params = ['tenant_id1' => $tenantId, 'tenant_id2' => $tenantId];
         
         if ($roomTypeId !== null) {
             $sql .= " AND r.room_type_id = :room_type_id";
@@ -50,7 +52,7 @@ class RoomHandler
         
         $sql .= " ORDER BY r.floor, r.room_number";
         
-        return $this->db->query($sql, $params);
+        return $this->db->query($sql, $params, enforceTenant: false);
     }
     
     /**
@@ -58,6 +60,7 @@ class RoomHandler
      */
     public function get(int $id): ?array
     {
+        $tenantId = TenantContext::getId();
         return $this->db->queryOne(
             "SELECT r.*, 
                     rt.name as room_type_name, 
@@ -65,9 +68,10 @@ class RoomHandler
                     rt.base_rate,
                     rt.gst_rate
              FROM rooms r
-             JOIN room_types rt ON r.room_type_id = rt.id
-             WHERE r.id = :id AND r.is_active = 1",
-            ['id' => $id]
+             JOIN room_types rt ON r.room_type_id = rt.id AND rt.tenant_id = :tenant_id1
+             WHERE r.id = :id AND r.is_active = 1 AND r.tenant_id = :tenant_id2",
+            ['id' => $id, 'tenant_id1' => $tenantId, 'tenant_id2' => $tenantId],
+            enforceTenant: false
         );
     }
     
