@@ -292,6 +292,30 @@ if (str_starts_with($requestUri, '/api/')) {
             exit;
         }
         
+        // ========== Housekeeping APIs ==========
+        
+        // POST /api/housekeeping/status - Update room cleaning status
+        if ($requestUri === '/api/housekeeping/status' && $requestMethod === 'POST') {
+            requireApiAuth();
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            
+            if (empty($data['room_id']) || empty($data['status'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'room_id and status required']);
+                exit;
+            }
+            
+            $handler = new \HotelOS\Handlers\HousekeepingHandler();
+            try {
+                $handler->updateStatus((int)$data['room_id'], $data['status']);
+                echo json_encode(['success' => true]);
+            } catch (\Throwable $e) {
+                http_response_code(400);
+                echo json_encode(['error' => $e->getMessage()]);
+            }
+            exit;
+        }
+        
         // 404 for unknown API routes
         http_response_code(404);
         echo json_encode(['error' => 'API endpoint not found']);
@@ -395,6 +419,11 @@ try {
             
         case '/bookings/create':
             renderBookingCreatePage($auth);
+            break;
+        
+        // ========== Housekeeping ==========
+        case '/housekeeping':
+            renderHousekeepingPage($auth);
             break;
         
         // ========== Placeholder Routes ==========
@@ -866,6 +895,41 @@ function renderBookingCreatePage(Auth $auth): void
     
     ob_start();
     include VIEWS_PATH . '/bookings/create.php';
+    $content = ob_get_clean();
+    
+    include VIEWS_PATH . '/layouts/app.php';
+}
+
+// ============================================
+// Render Functions - Housekeeping
+// ============================================
+
+function renderHousekeepingPage(Auth $auth): void
+{
+    $user = $auth->user();
+    $csrfToken = $auth->csrfToken();
+    
+    $handler = new \HotelOS\Handlers\HousekeepingHandler();
+    
+    // Get filter params
+    $selectedFloor = $_GET['floor'] ?? '';
+    $selectedStatus = $_GET['status'] ?? '';
+    
+    $rooms = $handler->getRoomBoard(
+        $selectedFloor ?: null,
+        $selectedStatus ?: null
+    );
+    $statusCounts = $handler->getStatusCounts();
+    $floors = $handler->getFloors();
+    
+    $title = 'Housekeeping';
+    $currentRoute = 'housekeeping';
+    $breadcrumbs = [
+        ['label' => 'Housekeeping']
+    ];
+    
+    ob_start();
+    include VIEWS_PATH . '/housekeeping/index.php';
     $content = ob_get_clean();
     
     include VIEWS_PATH . '/layouts/app.php';
