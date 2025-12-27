@@ -71,8 +71,8 @@ class RoomTypeHandler
         // Validate required fields
         $this->validate($data);
         
-        // Generate code if not provided
-        $code = strtoupper($data['code'] ?? $this->generateCode($data['name']));
+        // Generate code if not provided or empty
+        $code = !empty($data['code']) ? strtoupper(trim($data['code'])) : strtoupper($this->generateCode($data['name']));
         
         // Check for duplicate code
         $existing = $this->getByCode($code);
