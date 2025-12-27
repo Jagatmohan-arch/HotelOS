@@ -27,6 +27,25 @@ try {
         throw new Exception('Database connection failed');
     }
     
+    // Add missing columns if they don't exist
+    $alterCommands = [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INT DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until DATETIME NULL",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at DATETIME NULL",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_ip VARCHAR(45) NULL",
+    ];
+    
+    foreach ($alterCommands as $sql) {
+        try {
+            $db->exec($sql);
+        } catch (PDOException $e) {
+            // Ignore "column already exists" errors
+            if (strpos($e->getMessage(), 'Duplicate') === false) {
+                throw $e;
+            }
+        }
+    }
+    
     // Generate proper password hash
     $hash = password_hash($password, PASSWORD_DEFAULT);
     
