@@ -44,7 +44,7 @@ $csrfToken = $csrfToken ?? '';
             x-data="loginForm" 
             @submit.prevent="submit"
             method="POST" 
-            action="/api/auth/login"
+            action="/login"
             novalidate
         >
             <!-- CSRF Token -->

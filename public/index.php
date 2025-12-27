@@ -193,6 +193,11 @@ try {
         // ========== Auth Routes ==========
         case '/':
         case '/login':
+            // Handle POST login (form submission)
+            if ($requestMethod === 'POST') {
+                handleLoginForm($auth);
+                exit;
+            }
             renderLoginPage($auth);
             break;
             
@@ -356,6 +361,38 @@ function renderLoginPage(Auth $auth): void
     $content = ob_get_clean();
     
     include VIEWS_PATH . '/layouts/base.php';
+}
+
+function handleLoginForm(Auth $auth): void
+{
+    // Get form data
+    $email = trim($_POST['email'] ?? '');
+    $password = $_POST['password'] ?? '';
+    
+    // Validate inputs
+    if (empty($email) || empty($password)) {
+        header('Location: /?error=invalid');
+        exit;
+    }
+    
+    // Attempt login
+    $result = $auth->attempt($email, $password);
+    
+    if ($result['success']) {
+        // Redirect to dashboard on success
+        header('Location: /dashboard');
+        exit;
+    } else {
+        // Determine error type
+        $errorCode = 'invalid';
+        if (strpos($result['message'], 'locked') !== false) {
+            $errorCode = 'locked';
+        } elseif (strpos($result['message'], 'deactivated') !== false) {
+            $errorCode = 'inactive';
+        }
+        header('Location: /?error=' . $errorCode);
+        exit;
+    }
 }
 
 function renderDashboard(Auth $auth): void
