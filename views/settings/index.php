@@ -4,7 +4,7 @@
  * Tabbed interface for hotel configuration
  */
 
-declare(strict_types=1);
+
 
 $profile = $profile ?? [];
 $states = $states ?? [];

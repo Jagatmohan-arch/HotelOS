@@ -4,7 +4,7 @@
  * Print-friendly invoice with GST breakdown
  */
 
-declare(strict_types=1);
+
 
 $invoice = $invoice ?? null;
 

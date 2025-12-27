@@ -4,7 +4,7 @@
  * Glassmorphism login card with Antigravity theme
  */
 
-declare(strict_types=1);
+
 
 $error = $error ?? null;
 $csrfToken = $csrfToken ?? '';

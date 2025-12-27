@@ -4,7 +4,7 @@
  * Shows today's arrivals, departures, and in-house guests
  */
 
-declare(strict_types=1);
+
 
 $pageTitle = 'Front Desk | HotelOS';
 $activeNav = 'bookings';

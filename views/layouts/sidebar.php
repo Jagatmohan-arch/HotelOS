@@ -10,7 +10,7 @@
  * - $user: Current authenticated user array
  */
 
-declare(strict_types=1);
+
 
 $currentRoute = $currentRoute ?? 'dashboard';
 $user = $user ?? ['first_name' => 'User', 'role' => 'user'];

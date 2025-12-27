@@ -4,8 +4,6 @@
  * Revenue, Occupancy, and GST reports
  */
 
-declare(strict_types=1);
-
 $activeTab = $activeTab ?? 'revenue';
 $startDate = $startDate ?? date('Y-m-01');
 $endDate = $endDate ?? date('Y-m-d');

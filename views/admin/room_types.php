@@ -11,7 +11,7 @@
  * - $success: Success message if any
  */
 
-declare(strict_types=1);
+
 
 $roomTypes = $roomTypes ?? [];
 $editType = $editType ?? null;

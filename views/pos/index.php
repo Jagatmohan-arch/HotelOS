@@ -4,7 +4,7 @@
  * Manage items and add charges to guest rooms
  */
 
-declare(strict_types=1);
+
 
 $items = $items ?? [];
 $inHouseGuests = $inHouseGuests ?? [];

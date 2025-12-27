@@ -13,7 +13,7 @@
  * - $breadcrumbs: Optional breadcrumb array [['label' => '', 'href' => ''], ...]
  */
 
-declare(strict_types=1);
+
 
 $title = $title ?? 'Dashboard';
 $currentRoute = $currentRoute ?? 'dashboard';

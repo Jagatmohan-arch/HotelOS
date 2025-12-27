@@ -4,7 +4,7 @@
  * 3-Panel wizard: Guest → Room → Payment
  */
 
-declare(strict_types=1);
+
 
 $pageTitle = 'New Booking | HotelOS';
 $activeNav = 'bookings';

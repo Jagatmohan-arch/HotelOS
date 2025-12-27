@@ -10,7 +10,7 @@
  * - $statusSummary: Room status counts
  */
 
-declare(strict_types=1);
+
 
 // Default values if not set
 $stats = $stats ?? [

@@ -9,7 +9,7 @@
  * - $currentRoute: Current active route
  */
 
-declare(strict_types=1);
+
 
 $currentRoute = $currentRoute ?? 'dashboard';
 

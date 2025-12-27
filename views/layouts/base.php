@@ -9,7 +9,7 @@
  * - $content: Main content (set via view rendering)
  */
 
-declare(strict_types=1);
+
 
 // Default values
 $title = $title ?? 'HotelOS';
