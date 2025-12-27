@@ -14,9 +14,9 @@ return [
     'driver'    => 'mysql',
     'host'      => getenv('DB_HOST') ?: 'localhost',
     'port'      => getenv('DB_PORT') ?: '3306',
-    'database'  => getenv('DB_NAME') ?: 'hotelos_db',
-    'username'  => getenv('DB_USER') ?: 'hotelos_user',
-    'password'  => getenv('DB_PASS') ?: '',
+    'database'  => getenv('DB_NAME') ?: 'uplfveim_hotelos',
+    'username'  => getenv('DB_USER') ?: 'uplfveim_deploy',
+    'password'  => getenv('DB_PASS') ?: 'jm@HS10$$',
     'charset'   => 'utf8mb4',
     'collation' => 'utf8mb4_unicode_ci',
     
