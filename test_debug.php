@@ -1,68 +1,76 @@
 <?php
 /**
  * Debug test file - DELETE AFTER USE
+ * Tests the login page rendering with full error display
  */
 error_reporting(E_ALL);
 ini_set('display_errors', '1');
 
-echo "<h1>HotelOS Debug</h1>";
+// Set up base paths (same logic as public/index.php)
+$currentDir = __DIR__;
+if (is_dir($currentDir . '/config')) {
+    define('BASE_PATH', $currentDir);
+} else {
+    define('BASE_PATH', dirname($currentDir));
+}
+define('CONFIG_PATH', BASE_PATH . '/config');
+define('CORE_PATH', BASE_PATH . '/core');
+define('VIEWS_PATH', BASE_PATH . '/views');
+define('HANDLERS_PATH', BASE_PATH . '/handlers');
+define('LOGS_PATH', BASE_PATH . '/logs');
+
+echo "<h1>Login Render Test</h1>";
 echo "<pre>";
+echo "BASE_PATH: " . BASE_PATH . "\n";
+echo "VIEWS_PATH: " . VIEWS_PATH . "\n";
+echo "CORE_PATH: " . CORE_PATH . "\n\n";
 
-// Check paths
-echo "=== PATHS ===\n";
-echo "__DIR__ = " . __DIR__ . "\n";
-echo "dirname(__DIR__) = " . dirname(__DIR__) . "\n";
-
-// Include public/index.php paths
-$publicIndex = __DIR__ . '/public/index.php';
-echo "public/index.php exists: " . (file_exists($publicIndex) ? 'YES' : 'NO') . "\n";
-
-// Check config
-$configFile = __DIR__ . '/config/app.php';
-echo "config/app.php exists: " . (file_exists($configFile) ? 'YES' : 'NO') . "\n";
-
-// Check core
-$coreDir = __DIR__ . '/core';
-echo "core/ directory exists: " . (is_dir($coreDir) ? 'YES' : 'NO') . "\n";
-
-// Try to load config
-echo "\n=== CONFIG TEST ===\n";
+// Test 1: Check Auth class
 try {
-    $config = require $configFile;
-    echo "Config loaded: YES\n";
-    echo "App Name: " . $config['name'] . "\n";
-    echo "Debug Mode: " . ($config['debug'] ? 'true' : 'false') . "\n";
+    echo "=== Loading Auth Class ===\n";
+    require_once CORE_PATH . '/Auth.php';
+    echo "Auth.php loaded\n";
+    
+    echo "=== Loading Config ===\n";
+    $appConfig = require CONFIG_PATH . '/app.php';
+    echo "Config loaded\n";
+    
+    echo "=== Getting Auth Instance ===\n";
+    $auth = \HotelOS\Core\Auth::getInstance();
+    echo "Auth instance OK\n";
+    
+    echo "=== CSRF Token ===\n";
+    $csrfToken = $auth->csrfToken();
+    echo "CSRF: " . substr($csrfToken, 0, 20) . "...\n";
+    
+    // Test login.php include
+    echo "\n=== Including views/auth/login.php ===\n";
+    $error = null;
+    $title = 'Login';
+    $bodyClass = 'page-login';
+    
+    ob_start();
+    include VIEWS_PATH . '/auth/login.php';
+    $content = ob_get_clean();
+    echo "login.php included, content length: " . strlen($content) . " bytes\n";
+    
+    // Test base.php include
+    echo "\n=== Including views/layouts/base.php ===\n";
+    ob_start();
+    include VIEWS_PATH . '/layouts/base.php';
+    $output = ob_get_clean();
+    echo "base.php included, output length: " . strlen($output) . " bytes\n";
+    
+    echo "\n=== SUCCESS - All files loaded ===\n";
+    echo "</pre>";
+    
+    // Show actual rendered content
+    echo "\n<hr><h2>Rendered Login Page:</h2>\n";
+    echo $output;
+    
 } catch (Throwable $e) {
-    echo "Config Error: " . $e->getMessage() . "\n";
+    echo "ERROR: " . $e->getMessage() . "\n";
+    echo "FILE: " . $e->getFile() . " Line " . $e->getLine() . "\n";
+    echo "TRACE:\n" . $e->getTraceAsString() . "\n";
+    echo "</pre>";
 }
-
-// Try to load Database class
-echo "\n=== CORE CLASSES ===\n";
-$dbClass = __DIR__ . '/core/Database.php';
-echo "Database.php exists: " . (file_exists($dbClass) ? 'YES' : 'NO') . "\n";
-
-try {
-    require_once $dbClass;
-    echo "Database.php loaded: YES\n";
-} catch (Throwable $e) {
-    echo "Database.php Error: " . $e->getMessage() . "\n";
-}
-
-// Try Auth class
-$authClass = __DIR__ . '/core/Auth.php';
-echo "Auth.php exists: " . (file_exists($authClass) ? 'YES' : 'NO') . "\n";
-
-try {
-    require_once $authClass;
-    echo "Auth.php loaded: YES\n";
-} catch (Throwable $e) {
-    echo "Auth.php Error: " . $e->getMessage() . "\n";
-}
-
-// Request info
-echo "\n=== REQUEST INFO ===\n";
-echo "REQUEST_URI: " . ($_SERVER['REQUEST_URI'] ?? 'N/A') . "\n";
-echo "Parsed Path: " . parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) . "\n";
-
-echo "\n=== DONE ===\n";
-echo "</pre>";
