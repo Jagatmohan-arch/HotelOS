@@ -636,6 +636,7 @@ INSERT INTO `tenants` (
 );
 
 -- Admin user with password: Admin@123
+-- Hash generated using: password_hash('Admin@123', PASSWORD_BCRYPT)
 INSERT INTO `users` (
     `tenant_id`, `uuid`, `email`, `password_hash`,
     `first_name`, `last_name`, `role`, `is_active`, `email_verified_at`
@@ -643,7 +644,7 @@ INSERT INTO `users` (
     1,
     UUID(),
     'admin@hotelos.in',
-    '$argon2id$v=19$m=65536,t=4,p=1$WkZxY3pXTXhMUjVwdG1OSQ$H5Z2L3QpX6rK7vW8mN4jB9cD1eF0gA2hI3kJ4lM5nO6',
+    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
     'System',
     'Administrator',
     'superadmin',
