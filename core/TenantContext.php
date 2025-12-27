@@ -18,9 +18,9 @@ class TenantContext
     /**
      * Set the current tenant context
      */
-    public static function set(int $tenantId, ?array $tenantData = null): void
+    public static function set(int|string $tenantId, ?array $tenantData = null): void
     {
-        self::$tenantId = $tenantId;
+        self::$tenantId = (int) $tenantId;  // Cast to int for consistency
         self::$tenant = $tenantData;
     }
 
