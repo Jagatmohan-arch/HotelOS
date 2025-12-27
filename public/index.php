@@ -279,9 +279,13 @@ if (str_starts_with($requestUri, '/api/')) {
         // POST /api/bookings/{id}/check-out
         if (preg_match('#^/api/bookings/(\d+)/check-out$#', $requestUri, $matches) && $requestMethod === 'POST') {
             requireApiAuth();
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            
+            $extraCharges = (float)($data['extra_charges'] ?? 0);
+            $lateCheckoutFee = (float)($data['late_checkout_fee'] ?? 0);
             
             $handler = new \HotelOS\Handlers\BookingHandler();
-            $result = $handler->checkOut((int)$matches[1]);
+            $result = $handler->checkOut((int)$matches[1], $extraCharges, $lateCheckoutFee);
             
             if ($result['success']) {
                 echo json_encode($result);

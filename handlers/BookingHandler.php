@@ -255,9 +255,11 @@ class BookingHandler
      * Calculates final bill with GST
      * 
      * @param int $id Booking ID
+     * @param float $extraCharges Additional charges (minibar, laundry, etc.)
+     * @param float $lateCheckoutFee Manual late checkout fee (0 for auto-calc)
      * @return array Result with final amounts
      */
-    public function checkOut(int $id): array
+    public function checkOut(int $id, float $extraCharges = 0, float $lateCheckoutFee = 0): array
     {
         $booking = $this->getById($id);
         
@@ -269,8 +271,36 @@ class BookingHandler
             return ['success' => false, 'error' => 'Guest is not checked in'];
         }
         
+        // Calculate late checkout fee if checkout is after 12 PM
+        $now = new \DateTime();
+        $checkoutTime = (int)$now->format('H');
+        $calculatedLateFee = 0;
+        
+        if ($lateCheckoutFee > 0) {
+            // Use manually specified late fee
+            $calculatedLateFee = $lateCheckoutFee;
+        } elseif ($checkoutTime >= 14) {
+            // Auto-calculate: After 2 PM = 50% of room rate
+            $calculatedLateFee = (float)$booking['rate_per_night'] * 0.5;
+        } elseif ($checkoutTime >= 12) {
+            // After 12 PM but before 2 PM = 25% of room rate
+            $calculatedLateFee = (float)$booking['rate_per_night'] * 0.25;
+        }
+        
+        // Use passed extra charges or existing
+        $totalExtraCharges = $extraCharges > 0 ? $extraCharges : (float)($booking['extra_charges'] ?? 0);
+        $totalExtraCharges += $calculatedLateFee;
+        
+        // Update extra_charges in booking if new charges added
+        if ($extraCharges > 0 || $calculatedLateFee > 0) {
+            $this->db->execute(
+                "UPDATE bookings SET extra_charges = :extra WHERE id = :id",
+                ['id' => $id, 'extra' => $totalExtraCharges]
+            );
+        }
+        
         // Calculate final amounts with GST
-        $taxableAmount = $booking['room_total'] + $booking['extra_charges'] - $booking['discount_amount'];
+        $taxableAmount = (float)$booking['room_total'] + $totalExtraCharges - (float)($booking['discount_amount'] ?? 0);
         
         // Get GST rate from room type
         $roomType = $this->db->queryOne(
@@ -292,6 +322,7 @@ class BookingHandler
             "UPDATE bookings SET 
              status = 'checked_out',
              actual_check_out = NOW(),
+             extra_charges = :extra,
              taxable_amount = :taxable,
              gst_rate = :gst_rate,
              cgst_amount = :cgst,
@@ -306,6 +337,7 @@ class BookingHandler
              WHERE id = :id",
             [
                 'id' => $id,
+                'extra' => $totalExtraCharges,
                 'taxable' => $taxableAmount,
                 'gst_rate' => $gstRate,
                 'cgst' => $cgst,
@@ -329,12 +361,14 @@ class BookingHandler
         
         return [
             'success' => true,
+            'extra_charges' => $totalExtraCharges,
+            'late_fee' => $calculatedLateFee,
             'taxable_amount' => $taxableAmount,
             'gst_rate' => $gstRate,
             'cgst' => $cgst,
             'sgst' => $sgst,
             'grand_total' => $grandTotal,
-            'balance' => $grandTotal - $booking['paid_amount']
+            'balance' => $grandTotal - (float)$booking['paid_amount']
         ];
     }
     
