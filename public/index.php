@@ -446,8 +446,27 @@ try {
             break;
         
         // ========== Placeholder Routes ==========
-        case '/guests':
+        // ========== Settings ==========
         case '/settings':
+            renderSettingsPage($auth);
+            break;
+            
+        case '/settings/profile':
+            if ($requestMethod === 'POST') handleSettingsProfile($auth);
+            else header('Location: /settings');
+            break;
+            
+        case '/settings/tax':
+            if ($requestMethod === 'POST') handleSettingsTax($auth);
+            else header('Location: /settings?tab=tax');
+            break;
+            
+        case '/settings/times':
+            if ($requestMethod === 'POST') handleSettingsTimes($auth);
+            else header('Location: /settings?tab=times');
+            break;
+        
+        // ========== Placeholder Routes ==========
         case '/reports':
             renderComingSoonPage($auth, ucfirst(substr($requestUri, 1)));
             break;
@@ -985,5 +1004,81 @@ function handleBookingCancel(Auth $auth, int $bookingId): void
     }
     
     header('Location: /bookings');
+    exit;
+}
+
+// ============================================
+// Settings Functions
+// ============================================
+
+function renderSettingsPage(Auth $auth): void
+{
+    $user = $auth->user();
+    $csrfToken = $auth->csrfToken();
+    
+    $handler = new \HotelOS\Handlers\SettingsHandler();
+    $profile = $handler->getHotelProfile();
+    $states = \HotelOS\Handlers\SettingsHandler::getStatesList();
+    
+    $activeTab = $_GET['tab'] ?? 'profile';
+    $success = $_SESSION['flash_success'] ?? null;
+    $error = $_SESSION['flash_error'] ?? null;
+    unset($_SESSION['flash_success'], $_SESSION['flash_error']);
+    
+    $title = 'Settings';
+    $currentRoute = 'settings';
+    $breadcrumbs = [['label' => 'Settings']];
+    
+    ob_start();
+    include VIEWS_PATH . '/settings/index.php';
+    $content = ob_get_clean();
+    
+    include VIEWS_PATH . '/layouts/app.php';
+}
+
+function handleSettingsProfile(Auth $auth): void
+{
+    $handler = new \HotelOS\Handlers\SettingsHandler();
+    
+    try {
+        $handler->updateHotelProfile($_POST);
+        $_SESSION['flash_success'] = 'Hotel profile updated successfully';
+    } catch (\Throwable $e) {
+        $_SESSION['flash_error'] = $e->getMessage();
+    }
+    
+    header('Location: /settings');
+    exit;
+}
+
+function handleSettingsTax(Auth $auth): void
+{
+    $handler = new \HotelOS\Handlers\SettingsHandler();
+    
+    try {
+        $handler->updateTaxSettings($_POST);
+        $_SESSION['flash_success'] = 'Tax settings updated successfully';
+    } catch (\Throwable $e) {
+        $_SESSION['flash_error'] = $e->getMessage();
+    }
+    
+    header('Location: /settings?tab=tax');
+    exit;
+}
+
+function handleSettingsTimes(Auth $auth): void
+{
+    $handler = new \HotelOS\Handlers\SettingsHandler();
+    
+    try {
+        $checkIn = $_POST['check_in_time'] ?? '14:00';
+        $checkOut = $_POST['check_out_time'] ?? '11:00';
+        $handler->updateCheckTimes($checkIn . ':00', $checkOut . ':00');
+        $_SESSION['flash_success'] = 'Check times updated successfully';
+    } catch (\Throwable $e) {
+        $_SESSION['flash_error'] = $e->getMessage();
+    }
+    
+    header('Location: /settings?tab=times');
     exit;
 }
