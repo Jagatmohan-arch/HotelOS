@@ -486,9 +486,9 @@ try {
             else header('Location: /pos');
             break;
         
-        // ========== Placeholder Routes ==========
+        // ========== Reports ==========
         case '/reports':
-            renderComingSoonPage($auth, ucfirst(substr($requestUri, 1)));
+            renderReportsPage($auth);
             break;
             
         default:
@@ -1189,4 +1189,55 @@ function handlePOSItemUpdate(Auth $auth): void
     
     header('Location: /pos');
     exit;
+}
+
+// ============================================
+// Reports Functions
+// ============================================
+
+function renderReportsPage(Auth $auth): void
+{
+    $user = $auth->user();
+    $csrfToken = $auth->csrfToken();
+    
+    $handler = new \HotelOS\Handlers\ReportsHandler();
+    
+    $activeTab = $_GET['tab'] ?? 'revenue';
+    $startDate = $_GET['start'] ?? date('Y-m-01');
+    $endDate = $_GET['end'] ?? date('Y-m-d');
+    
+    $reportData = [];
+    $summary = [];
+    
+    switch ($activeTab) {
+        case 'revenue':
+            $reportData = $handler->getDailyRevenue($startDate, $endDate);
+            $summary = $handler->getRevenueSummary($startDate, $endDate);
+            break;
+            
+        case 'occupancy':
+            $reportData = $handler->getOccupancyReport($startDate, $endDate);
+            $summary = $handler->getOccupancySummary($startDate, $endDate);
+            break;
+            
+        case 'gst':
+            $gstData = $handler->getGSTSummary($startDate, $endDate);
+            $reportData = $gstData;
+            $summary = $gstData['totals'] ?? [];
+            break;
+            
+        case 'rooms':
+            $reportData = $handler->getRoomWiseRevenue($startDate, $endDate);
+            break;
+    }
+    
+    $title = 'Reports';
+    $currentRoute = 'reports';
+    $breadcrumbs = [['label' => 'Reports']];
+    
+    ob_start();
+    include VIEWS_PATH . '/reports/index.php';
+    $content = ob_get_clean();
+    
+    include VIEWS_PATH . '/layouts/app.php';
 }
