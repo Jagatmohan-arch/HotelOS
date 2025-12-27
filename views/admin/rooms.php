@@ -286,7 +286,7 @@ $statusConfig = [
                     <select name="room_type_id" x-model="form.room_type_id" class="form-input" required>
                         <option value="">Select type...</option>
                         <?php foreach ($roomTypes as $type): ?>
-                        <option value="<?= $type['id'] ?>"><?= htmlspecialchars($type['name']) ?> (₹<?= number_format($type['base_rate']) ?>)</option>
+                        <option value="<?= $type['id'] ?>"><?= htmlspecialchars($type['name']) ?> (₹<?= number_format((float)($type['base_rate'] ?? 0)) ?>)</option>
                         <?php endforeach; ?>
                     </select>
                 </div>
