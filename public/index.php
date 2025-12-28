@@ -143,6 +143,9 @@ use HotelOS\Handlers\RoomHandler;
 // Request Handling
 // ============================================
 
+// Phase F: Load Shift Module Functions
+require_once __DIR__ . '/index_shift_append.php';
+
 $requestMethod = $_SERVER['REQUEST_METHOD'];
 $requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 

@@ -72,12 +72,13 @@ $departuresDetail = $departuresDetail ?? [];
                     <i data-lucide="bed-double" class="w-5 h-5 text-cyan-400"></i>
                 </div>
             </div>
-            <div class="mt-3 flex items-center gap-2 text-xs">
+            <a href="/rooms?view=grid" class="mt-3 flex items-center gap-2 text-xs hover:bg-white/5 p-1 rounded -ml-1 transition-colors">
                 <span class="text-emerald-400">
                     <i data-lucide="circle-check" class="w-3 h-3 inline"></i>
                     <?= $statusSummary['available'] ?? 0 ?> Available
                 </span>
-            </div>
+                <i data-lucide="chevron-right" class="w-3 h-3 text-slate-500 ml-auto"></i>
+            </a>
         </div>
         
         <!-- Occupancy Rate -->
@@ -112,10 +113,11 @@ $departuresDetail = $departuresDetail ?? [];
                     <i data-lucide="log-in" class="w-5 h-5 text-emerald-400"></i>
                 </div>
             </div>
-            <div class="mt-3 text-xs text-slate-400">
-                <i data-lucide="clock" class="w-3 h-3 inline -mt-0.5"></i>
-                <?= date('d M Y') ?>
-            </div>
+            <a href="/bookings?tab=arrivals" class="mt-3 text-xs text-slate-400 hover:text-emerald-400 flex items-center transition-colors">
+                <i data-lucide="clock" class="w-3 h-3 inline -mt-0.5 mr-1"></i>
+                <span><?= date('d M Y') ?></span>
+                <span class="ml-auto underline">View List →</span>
+            </a>
         </div>
         
         <!-- Today's Revenue -->
@@ -140,11 +142,11 @@ $departuresDetail = $departuresDetail ?? [];
     <div class="glass-card p-4 mb-6">
         <h2 class="text-sm font-semibold text-slate-300 mb-3">Quick Actions</h2>
         <div class="flex flex-wrap gap-2">
-            <a href="/bookings" class="btn btn--secondary">
+            <a href="/bookings?action=checkin" class="btn btn--secondary">
                 <i data-lucide="log-in" class="w-4 h-4 text-emerald-400"></i>
                 Check-in Guest
             </a>
-            <a href="/bookings" class="btn btn--secondary">
+            <a href="/bookings?tab=departures" class="btn btn--secondary">
                 <i data-lucide="log-out" class="w-4 h-4 text-orange-400"></i>
                 Check-out
             </a>
@@ -243,7 +245,7 @@ $departuresDetail = $departuresDetail ?? [];
                     <?php if ($todayDepartures === 0): ?>
                         <p class="text-xs text-slate-500 pl-6">No departures today</p>
                     <?php else: ?>
-                        <a href="/bookings" class="text-xs text-orange-400 pl-6 hover:underline">View departures →</a>
+                         <a href="/bookings?tab=departures" class="text-xs text-orange-400 pl-6 hover:underline">View departures →</a>
                     <?php endif; ?>
                 </div>
                 
