@@ -30,16 +30,17 @@ jobs:
           cat > deploy.lftp << 'SCRIPT'
           set ftp:ssl-allow no
           set ftp:passive-mode yes
-          set net:timeout 60
-          set net:max-retries 3
-          set net:reconnect-interval-base 5
-          set cmd:fail-exit yes
+          set net:timeout 180
+          set net:max-retries 10
+          set net:reconnect-interval-base 10
+          set net:limit-rate 0
           
           # Connect to server
           open -u $FTP_USERNAME,$FTP_PASSWORD $FTP_SERVER
           
           # Mirror local to remote (upload only changes)
-          mirror --reverse --delete --verbose \
+          # parallel=2 to prevent overwhelming the server, no-perms to avoid CHMOD errors
+          mirror --reverse --delete --verbose --parallel=2 --no-perms \
             --exclude-glob .git* \
             --exclude-glob .github/ \
             --exclude-glob *.md \
