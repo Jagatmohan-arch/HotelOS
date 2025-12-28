@@ -89,6 +89,8 @@ $navItems = [
         toggleExpanded() {
             this.expanded = !this.expanded;
             localStorage.setItem('sidebarExpanded', this.expanded);
+            // Dispatch event for app-layout to listen
+            document.dispatchEvent(new CustomEvent('sidebar-toggle', { detail: { expanded: this.expanded } }));
         },
         toggleDropdown(name) {
             this.activeDropdown = this.activeDropdown === name ? null : name;

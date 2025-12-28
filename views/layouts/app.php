@@ -152,12 +152,37 @@ $breadcrumbs = $breadcrumbs ?? [];
             flex: 1;
             padding: 1.5rem;
             overflow-y: auto;
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+            transition: max-width 0.3s ease;
+        }
+        
+        /* When sidebar is collapsed, content can expand more */
+        .sidebar-collapsed .main-content {
+            max-width: 1600px;
+        }
+        
+        /* Full width for certain pages like booking wizard */
+        .main-content--full {
+            max-width: none;
         }
         
         @media (max-width: 1023px) {
             .main-content {
                 padding: 1rem;
                 padding-bottom: calc(80px + env(safe-area-inset-bottom));
+                max-width: none;
+            }
+        }
+        
+        @media (min-width: 1920px) {
+            .main-content {
+                max-width: 1600px;
+            }
+            
+            .sidebar-collapsed .main-content {
+                max-width: 1800px;
             }
         }
         
@@ -501,6 +526,34 @@ $breadcrumbs = $breadcrumbs ?? [];
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
+            
+            // Sync sidebar state with app-layout class
+            const appLayout = document.querySelector('.app-layout');
+            const sidebarState = localStorage.getItem('sidebarExpanded');
+            
+            if (sidebarState === 'false') {
+                appLayout?.classList.add('sidebar-collapsed');
+            }
+            
+            // Listen for sidebar toggle events
+            window.addEventListener('storage', (e) => {
+                if (e.key === 'sidebarExpanded') {
+                    if (e.newValue === 'false') {
+                        appLayout?.classList.add('sidebar-collapsed');
+                    } else {
+                        appLayout?.classList.remove('sidebar-collapsed');
+                    }
+                }
+            });
+            
+            // Also listen for Alpine-triggered changes
+            document.addEventListener('sidebar-toggle', (e) => {
+                if (e.detail?.expanded === false) {
+                    appLayout?.classList.add('sidebar-collapsed');
+                } else {
+                    appLayout?.classList.remove('sidebar-collapsed');
+                }
+            });
         });
         
         // Re-init after Alpine updates
