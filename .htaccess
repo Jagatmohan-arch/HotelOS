@@ -11,12 +11,15 @@
     # RewriteCond %{HTTPS} off
     # RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
     
+    # Route /assets/ to /public/assets/ (for MilesWeb compatibility)
+    RewriteRule ^assets/(.*)$ public/assets/$1 [L,NC]
+    
     # Don't rewrite if file or directory exists
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     
-    # Route everything to index.php
-    RewriteRule ^(.*)$ index.php [QSA,L]
+    # Route everything to public/index.php
+    RewriteRule ^(.*)$ public/index.php [QSA,L]
 </IfModule>
 
 # ============================================
