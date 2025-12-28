@@ -48,8 +48,7 @@ class PoliceReportHandler
                 g.nationality,
                 g.date_of_birth,
                 g.gender,
-                g.id_photo_path,
-                g.id_scan_text
+                g.id_document_url
              FROM bookings b
              JOIN guests g ON b.guest_id = g.id
              JOIN rooms r ON b.room_id = r.id
