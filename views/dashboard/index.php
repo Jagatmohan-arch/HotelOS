@@ -43,14 +43,18 @@ $departuresDetail = $departuresDetail ?? [];
             <h1 class="text-2xl font-bold text-white">Dashboard</h1>
             <p class="text-slate-400 text-sm mt-1">Welcome back! Here's what's happening today.</p>
         </div>
-        <div class="flex gap-3">
-            <button class="btn btn--secondary">
+        <div class="flex gap-2 sm:gap-3 flex-wrap">
+            <a href="/bookings?action=checkin" class="btn btn--success">
+                <i data-lucide="log-in" class="w-4 h-4"></i>
+                <span class="hidden xs:inline">Quick</span> Check-in
+            </a>
+            <button class="btn btn--secondary hidden sm:flex">
                 <i data-lucide="download" class="w-4 h-4"></i>
                 <span class="hidden sm:inline">Export</span>
             </button>
             <a href="/bookings/create" class="btn btn--primary">
                 <i data-lucide="plus" class="w-4 h-4"></i>
-                New Booking
+                <span class="hidden sm:inline">New</span> Booking
             </a>
         </div>
     </div>

@@ -83,17 +83,50 @@ $navItems = [
 <!-- Sidebar Container with Alpine.js -->
 <aside 
     x-data="{ 
-        expanded: localStorage.getItem('sidebarExpanded') !== 'false',
+        expanded: false,
         mobileOpen: false,
         activeDropdown: null,
+        isMobile: window.innerWidth < 768,
+        isTablet: window.innerWidth >= 768 && window.innerWidth < 1024,
+        
+        init() {
+            // Device-aware initialization
+            this.isMobile = window.innerWidth < 768;
+            this.isTablet = window.innerWidth >= 768 && window.innerWidth < 1024;
+            
+            // Mobile: always collapsed, Desktop: respect localStorage
+            if (this.isMobile) {
+                this.expanded = false;
+                this.mobileOpen = false;
+            } else {
+                this.expanded = localStorage.getItem('sidebarExpanded') !== 'false';
+            }
+            
+            // Listen for resize
+            window.addEventListener('resize', () => {
+                this.isMobile = window.innerWidth < 768;
+                this.isTablet = window.innerWidth >= 768 && window.innerWidth < 1024;
+                
+                // Auto-close mobile sidebar on resize to desktop
+                if (!this.isMobile && this.mobileOpen) {
+                    this.mobileOpen = false;
+                }
+            });
+        },
+        
         toggleExpanded() {
             this.expanded = !this.expanded;
             localStorage.setItem('sidebarExpanded', this.expanded);
             // Dispatch event for app-layout to listen
             document.dispatchEvent(new CustomEvent('sidebar-toggle', { detail: { expanded: this.expanded } }));
         },
+        
         toggleDropdown(name) {
             this.activeDropdown = this.activeDropdown === name ? null : name;
+        },
+        
+        closeMobile() {
+            this.mobileOpen = false;
         }
     }"
     @keydown.escape.window="mobileOpen = false"
@@ -304,13 +337,40 @@ $navItems = [
         width: 72px;
     }
     
-    /* Mobile: Hide by default, show on mobileOpen */
-    @media (max-width: 1023px) {
+    /* Mobile (<768px): Full overlay mode */
+    @media (max-width: 767px) {
         .sidebar-nav {
             transform: translateX(-100%);
+            width: 280px;
         }
         .sidebar-nav--mobile-open {
             transform: translateX(0);
+        }
+        /* Hide expanded state classes on mobile */
+        .sidebar-nav--expanded {
+            transform: translateX(-100%);
+        }
+        .sidebar-nav--mobile-open.sidebar-nav--expanded {
+            transform: translateX(0);
+        }
+    }
+    
+    /* Tablet (768px - 1023px): Mini sidebar by default */
+    @media (min-width: 768px) and (max-width: 1023px) {
+        .sidebar-nav {
+            width: 72px;
+        }
+        .sidebar-nav--expanded {
+            width: 280px;
+        }
+    }
+    
+    /* Desktop (1024+): Full sidebar */
+    @media (min-width: 1024px) {
+        .sidebar-nav--collapsed {
+            width: 72px;
+        }
+        .sidebar-nav--expanded {
             width: 280px;
         }
     }

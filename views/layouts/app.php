@@ -127,9 +127,20 @@ $breadcrumbs = $breadcrumbs ?? [];
             margin-left: var(--sidebar-collapsed);
         }
         
-        @media (max-width: 1023px) {
+        /* Mobile (<768px): No margin */
+        @media (max-width: 767px) {
             .main-wrapper {
-                margin-left: 0;
+                margin-left: 0 !important;
+            }
+        }
+        
+        /* Tablet (768-1023px): Mini sidebar margin */
+        @media (min-width: 768px) and (max-width: 1023px) {
+            .main-wrapper {
+                margin-left: var(--sidebar-collapsed);
+            }
+            .sidebar-expanded .main-wrapper {
+                margin-left: var(--sidebar-width);
             }
         }
         
