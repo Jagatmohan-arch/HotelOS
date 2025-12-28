@@ -427,16 +427,32 @@ try {
             
         case '/logout':
             // Phase F1: Check for open shift
-            $shiftHandler = new \HotelOS\Handlers\ShiftHandler();
-            $openShift = $shiftHandler->getCurrentShift($auth->user()['id']); // Needs active user
-            
-            if ($openShift) {
-                // Block logout, redirect to shift page
-                header('Location: /shifts?error=' . urlencode('You must close your active shift before logging out.'));
-                exit;
+            $user = $auth->user();
+            if ($user && isset($user['id'])) {
+                $shiftHandler = new \HotelOS\Handlers\ShiftHandler();
+                // Ensure ID is integer
+                $openShift = $shiftHandler->getCurrentShift((int)$user['id']); 
+                
+                if ($openShift) {
+                    // Block logout, redirect to shift page
+                    header('Location: /shifts?error=' . urlencode('You must close your active shift before logging out.'));
+                    exit;
+                }
             }
             
+            // Perform full logout
             $auth->logout();
+            
+            // Destroy session cookie
+            if (ini_get("session.use_cookies")) {
+                $params = session_get_cookie_params();
+                setcookie(session_name(), '', time() - 42000,
+                    $params["path"], $params["domain"],
+                    $params["secure"], $params["httponly"]
+                );
+            }
+            session_destroy();
+            
             header('Location: /?logged_out=1');
             exit;
         
