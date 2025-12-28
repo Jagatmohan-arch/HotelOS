@@ -258,11 +258,14 @@ $navItems = [
             <ul class="space-y-1 px-3">
                 <?php foreach ($navItems as $item): ?>
                     <?php 
-                    $isActive = $currentRoute === $item['route'] || 
-                                (isset($item['children']) && in_array($currentRoute, array_column($item['children'], 'route')));
-                    ?>
-                    
-                    <?php endif; ?>
+    // Role Based Access Control
+    if (isset($item['roles']) && !in_array($user['role'], $item['roles'])) {
+        continue;
+    }
+
+    $isActive = $currentRoute === $item['route'] || 
+                (isset($item['children']) && in_array($currentRoute, array_column($item['children'], 'route')));
+    ?>
                     
                     <?php if (isset($item['children'])): ?>
                         <!-- Dropdown Item -->
