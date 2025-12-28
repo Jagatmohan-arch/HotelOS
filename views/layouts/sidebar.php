@@ -153,6 +153,22 @@ $navItems = [
             </button>
         </div>
         
+        <!-- Quick Actions Bar -->
+        <div class="quick-actions" x-show="expanded || mobileOpen">
+            <a href="/bookings/create" class="quick-action-btn">
+                <i data-lucide="plus-circle"></i>
+                <span>New Booking</span>
+            </a>
+            <a href="/bookings?action=checkin" class="quick-action-btn">
+                <i data-lucide="log-in"></i>
+                <span>Check-in</span>
+            </a>
+            <a href="/bookings?search=1" class="quick-action-btn">
+                <i data-lucide="search"></i>
+                <span>Find Guest</span>
+            </a>
+        </div>
+        
         <!-- Navigation Links -->
         <div class="sidebar-content flex-1 overflow-y-auto py-4">
             <ul class="space-y-1 px-3">
@@ -380,5 +396,79 @@ $navItems = [
     @keyframes pulse-badge {
         0%, 100% { opacity: 1; }
         50% { opacity: 0.6; }
+    }
+    
+    /* ============================================
+       Smooth Animation Fixes (No Flickering)
+       ============================================ */
+    
+    /* GPU accelerated transitions */
+    .sidebar-nav {
+        will-change: width;
+        transform: translateZ(0);
+        backface-visibility: hidden;
+    }
+    
+    .nav-link {
+        transition: background 0.15s ease, color 0.15s ease !important;
+        transform: translateZ(0);
+    }
+    
+    /* Prevent icon re-render flicker */
+    .nav-link-icon,
+    .nav-link-icon svg {
+        transition: none !important;
+        transform: translateZ(0);
+    }
+    
+    /* Smooth dropdown animation */
+    .sidebar-content ul[x-show] {
+        transform-origin: top;
+    }
+    
+    /* ============================================
+       Quick Actions Bar
+       ============================================ */
+    
+    .quick-actions {
+        padding: 0.75rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    
+    .quick-action-btn {
+        flex: 1;
+        min-width: 80px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.5rem;
+        border-radius: 0.5rem;
+        background: rgba(34, 211, 238, 0.1);
+        border: 1px solid rgba(34, 211, 238, 0.2);
+        color: #22d3ee;
+        font-size: 0.65rem;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        text-align: center;
+    }
+    
+    .quick-action-btn:hover {
+        background: rgba(34, 211, 238, 0.2);
+        transform: translateY(-2px);
+    }
+    
+    .quick-action-btn svg,
+    .quick-action-btn i {
+        width: 1rem;
+        height: 1rem;
+    }
+    
+    /* Hide quick actions when collapsed */
+    .sidebar-nav--collapsed .quick-actions {
+        display: none;
     }
 </style>

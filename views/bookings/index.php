@@ -16,6 +16,17 @@ $activeNav = 'bookings';
         <p class="page-subtitle">Manage arrivals, departures & in-house guests</p>
     </div>
     <div class="page-header__right">
+        <!-- Guest Search -->
+        <div class="search-box">
+            <input 
+                type="text" 
+                id="guest-search" 
+                class="search-input" 
+                placeholder="🔍 Search by phone or name..."
+                autocomplete="off"
+            >
+            <div id="search-results" class="search-results"></div>
+        </div>
         <a href="/bookings/create" class="btn btn--primary">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -284,6 +295,95 @@ $activeNav = 'bookings';
 }
 
 .text-center { text-align: center; }
+
+/* Search Box */
+.search-box {
+    position: relative;
+    margin-right: 1rem;
+}
+
+.search-input {
+    width: 250px;
+    padding: 0.625rem 1rem;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 0.5rem;
+    color: #f1f5f9;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #22d3ee;
+    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.2);
+}
+
+.search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: rgba(30, 41, 59, 0.98);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.5rem;
+    margin-top: 0.25rem;
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 100;
+    display: none;
+}
+
+.search-results.active {
+    display: block;
+}
+
+.search-result-item {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    transition: background 0.15s;
+}
+
+.search-result-item:hover {
+    background: rgba(34, 211, 238, 0.1);
+}
+
+.search-result-item:last-child {
+    border-bottom: none;
+}
+
+.search-result-name {
+    font-weight: 600;
+    color: #f1f5f9;
+}
+
+.search-result-meta {
+    font-size: 0.8rem;
+    color: #94a3b8;
+}
+
+@media (max-width: 768px) {
+    .page-header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
+    }
+    
+    .page-header__right {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    
+    .search-box {
+        margin-right: 0;
+    }
+    
+    .search-input {
+        width: 100%;
+    }
+}
 </style>
 
 <script>
@@ -302,7 +402,67 @@ document.addEventListener('DOMContentLoaded', function() {
     loadArrivals();
     loadDepartures();
     loadInHouse();
+    
+    // Guest Search
+    initGuestSearch();
 });
+
+// Guest Search Functionality
+function initGuestSearch() {
+    const searchInput = document.getElementById('guest-search');
+    const searchResults = document.getElementById('search-results');
+    let debounceTimer;
+    
+    searchInput.addEventListener('input', function(e) {
+        clearTimeout(debounceTimer);
+        const query = e.target.value.trim();
+        
+        if (query.length < 3) {
+            searchResults.classList.remove('active');
+            return;
+        }
+        
+        debounceTimer = setTimeout(() => {
+            fetch(`/api/guests/search?q=${encodeURIComponent(query)}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.data.length > 0) {
+                        searchResults.innerHTML = data.data.map(g => `
+                            <div class="search-result-item" onclick="viewGuestBookings(${g.id}, '${g.first_name} ${g.last_name}')">
+                                <div class="search-result-name">${g.first_name} ${g.last_name}</div>
+                                <div class="search-result-meta">${g.phone} • ${g.total_stays || 0} stays</div>
+                            </div>
+                        `).join('');
+                        searchResults.classList.add('active');
+                    } else {
+                        searchResults.innerHTML = `
+                            <div class="search-result-item">
+                                <div class="search-result-meta">No guests found</div>
+                            </div>
+                        `;
+                        searchResults.classList.add('active');
+                    }
+                });
+        }, 300);
+    });
+    
+    // Hide results on blur
+    searchInput.addEventListener('blur', function() {
+        setTimeout(() => searchResults.classList.remove('active'), 200);
+    });
+    
+    // Show results on focus if has value
+    searchInput.addEventListener('focus', function() {
+        if (this.value.length >= 3) {
+            searchResults.classList.add('active');
+        }
+    });
+}
+
+function viewGuestBookings(guestId, guestName) {
+    alert(`Guest: ${guestName}\n\nFeature coming soon: View guest history and create booking for this guest.`);
+    // TODO: Open guest details modal or navigate to guest page
+}
 
 function loadArrivals() {
     fetch('/api/bookings/today-arrivals')
