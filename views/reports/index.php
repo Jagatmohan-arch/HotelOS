@@ -290,7 +290,7 @@ $summary = $summary ?? [];
             </table>
         </div>
     </div>
-    <?php endif; ?>
+
     
     <?php elseif ($activeTab === 'police'): ?>
         <?php include __DIR__ . '/police-report.php'; ?>
