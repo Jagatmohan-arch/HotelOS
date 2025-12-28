@@ -51,11 +51,17 @@ class PoliceReportHandler
                 g.id_document_url
              FROM bookings b
              JOIN guests g ON b.guest_id = g.id
+
              JOIN rooms r ON b.room_id = r.id
-             WHERE DATE(b.actual_check_in) = :report_date
+             WHERE b.tenant_id = :tenant_id
+             AND DATE(b.actual_check_in) = :report_date
              AND b.status IN ('checked_in', 'checked_out')
              ORDER BY b.actual_check_in ASC",
-            ['report_date' => $date]
+            [
+                'tenant_id' => \HotelOS\Core\TenantContext::getId(),
+                'report_date' => $date
+            ],
+            false // Disable auto-injection to avoid ambiguous columns
         );
         
         return [

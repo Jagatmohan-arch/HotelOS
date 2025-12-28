@@ -25,12 +25,8 @@ class ShiftHandler
             "SELECT * FROM shifts 
              WHERE user_id = :user_id 
              AND status = 'OPEN' 
-             AND tenant_id = :tenant_id
              LIMIT 1",
-            [
-                'user_id' => $userId, 
-                'tenant_id' => TenantContext::getId()
-            ]
+            ['user_id' => $userId]
         );
     }
 
@@ -47,7 +43,7 @@ class ShiftHandler
         $tenantId = TenantContext::getId();
 
         // 2. Create Shift
-        $id = $this->db->insert(
+        $id = $this->db->execute(
             "INSERT INTO shifts (tenant_id, user_id, opening_cash, shift_start_at, status)
              VALUES (:tenant_id, :user_id, :opening_cash, NOW(), 'OPEN')",
             [
@@ -124,7 +120,7 @@ class ShiftHandler
         
         if (!$shift) return false;
         
-        return (bool) $this->db->insert(
+        return (bool) $this->db->execute(
             "INSERT INTO cash_ledger (tenant_id, shift_id, user_id, type, amount, category, description, created_at)
              VALUES (:tid, :sid, :uid, :type, :amount, :cat, :desc, NOW())",
             [
@@ -204,13 +200,9 @@ class ShiftHandler
              FROM shifts s
              JOIN users u1 ON s.user_id = u1.id
              LEFT JOIN users u2 ON s.handover_to_user_id = u2.id
-             WHERE s.tenant_id = :tenant_id
              ORDER BY s.created_at DESC
              LIMIT :limit",
-            [
-                'tenant_id' => TenantContext::getId(),
-                'limit' => $limit
-            ]
+            ['limit' => $limit]
         );
     }
     
