@@ -602,12 +602,15 @@ try {
         case '/admin/shifts/verify':
             if ($requestMethod === 'POST') handleShiftVerify($auth);
             break;
-            
-
+           case '/setup_db':
             $key = $_GET['key'] ?? '';
             if ($key !== 'hotelos_setup_2024') die('Access Denied');
             
+            // VERSION CACHE BUSTER
+            echo "HOTFIX-8-RAW-PDO-DEPLOYED<br>";
+            
             $db = Database::getInstance();
+            // Bypass Database wrapper to avoid 'WHERE tenant_id = ?' injection on DDL
             $pdo = $db->getPdo();
             
             // 1. Shifts
