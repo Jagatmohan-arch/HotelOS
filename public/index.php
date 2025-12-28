@@ -679,7 +679,26 @@ try {
                 echo "Bookings patched. ";
             } catch (Exception $ex) { echo "Booking patch error: " . $ex->getMessage(); }
             
-            echo "Done.";
+            // 4. Police Reports
+            try {
+                $pdo->exec("
+                    CREATE TABLE IF NOT EXISTS `police_reports` (
+                        `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                        `tenant_id` INT UNSIGNED NOT NULL,
+                        `report_date` DATE NOT NULL,
+                        `status` ENUM('pending', 'submitted') NOT NULL DEFAULT 'pending',
+                        `submitted_at` TIMESTAMP NULL,
+                        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        PRIMARY KEY (`id`),
+                        INDEX `idx_police_reports_tenant` (`tenant_id`),
+                        INDEX `idx_police_reports_date` (`report_date`),
+                        UNIQUE KEY `uniq_tenant_date` (`tenant_id`, `report_date`)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                ");
+                echo "Police Reports Table Created. ";
+            } catch (Exception $e) { echo "Police Report Error: " . $e->getMessage(); }
+            
+            echo "Brute Force Setup Done.";
             exit;
             exit;
             

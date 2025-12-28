@@ -407,8 +407,12 @@ class BookingHandler
              JOIN guests g ON b.guest_id = g.id
              LEFT JOIN rooms r ON b.room_id = r.id
              JOIN room_types rt ON b.room_type_id = rt.id
-             WHERE b.id = :id",
-            ['id' => $id]
+             WHERE b.id = :id AND b.tenant_id = :tenant_id",
+            [
+                'id' => $id,
+                'tenant_id' => TenantContext::getId()
+            ],
+            enforceTenant: false
         );
     }
     
@@ -426,7 +430,10 @@ class BookingHandler
              JOIN room_types rt ON b.room_type_id = rt.id
              WHERE DATE(b.check_in_date) = CURDATE()
                AND b.status IN ('confirmed', 'pending')
-             ORDER BY b.id DESC"
+               AND b.tenant_id = :tenant_id
+             ORDER BY b.id DESC",
+            ['tenant_id' => TenantContext::getId()],
+            enforceTenant: false
         );
     }
     
@@ -444,7 +451,10 @@ class BookingHandler
              JOIN room_types rt ON b.room_type_id = rt.id
              WHERE DATE(b.check_out_date) = CURDATE()
                AND b.status = 'checked_in'
-             ORDER BY b.id DESC"
+               AND b.tenant_id = :tenant_id
+             ORDER BY b.id DESC",
+            ['tenant_id' => TenantContext::getId()],
+            enforceTenant: false
         );
     }
     
@@ -461,7 +471,10 @@ class BookingHandler
              JOIN rooms r ON b.room_id = r.id
              JOIN room_types rt ON b.room_type_id = rt.id
              WHERE b.status = 'checked_in'
-             ORDER BY r.room_number"
+               AND b.tenant_id = :tenant_id
+             ORDER BY r.room_number",
+            ['tenant_id' => TenantContext::getId()],
+            enforceTenant: false
         );
     }
     

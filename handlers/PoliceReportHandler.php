@@ -61,7 +61,7 @@ class PoliceReportHandler
                 'tenant_id' => \HotelOS\Core\TenantContext::getId(),
                 'report_date' => $date
             ],
-            false // Disable auto-injection to avoid ambiguous columns
+            enforceTenant: false
         );
         
         return [
@@ -83,13 +83,16 @@ class PoliceReportHandler
                 COUNT(DISTINCT b.id) as guest_count,
                 MAX(pr.status) as report_status
              FROM bookings b
-             LEFT JOIN police_reports pr ON DATE(b.actual_check_in) = pr.report_date
-             WHERE b.actual_check_in IS NOT NULL
+             LEFT JOIN police_reports pr ON DATE(b.actual_check_in) = pr.report_date AND pr.tenant_id = b.tenant_id
+             WHERE b.tenant_id = :tenant_id
+             AND b.actual_check_in IS NOT NULL
              AND b.status IN ('checked_in', 'checked_out')
              AND DATE(b.actual_check_in) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
              AND (pr.id IS NULL OR pr.status = 'pending')
              GROUP BY DATE(b.actual_check_in)
-             ORDER BY report_date DESC"
+             ORDER BY report_date DESC",
+             ['tenant_id' => \HotelOS\Core\TenantContext::getId()],
+             enforceTenant: false
         );
     }
     

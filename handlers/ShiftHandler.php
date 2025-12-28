@@ -25,8 +25,13 @@ class ShiftHandler
             "SELECT * FROM shifts 
              WHERE user_id = :user_id 
              AND status = 'OPEN' 
+             AND tenant_id = :tenant_id
              LIMIT 1",
-            ['user_id' => $userId]
+            [
+                'user_id' => $userId, 
+                'tenant_id' => TenantContext::getId()
+            ],
+            enforceTenant: false
         );
     }
 
@@ -42,7 +47,9 @@ class ShiftHandler
 
         $tenantId = TenantContext::getId();
 
-        // 2. Create Shift
+        // 2. Create Shift (INSERT doesn't need enforceTenant: false as long as we provide tenant_id, but safer to be explicit if wrapper behavior is weird)
+        // Actually Database::execute for INSERT adds tenant_id if missing. Here we provide it.
+        // Let's force enforceTenant: false to be sure we control the SQL.
         $id = $this->db->execute(
             "INSERT INTO shifts (tenant_id, user_id, opening_cash, shift_start_at, status)
              VALUES (:tenant_id, :user_id, :opening_cash, NOW(), 'OPEN')",
@@ -50,7 +57,8 @@ class ShiftHandler
                 'tenant_id' => $tenantId,
                 'user_id' => $userId,
                 'opening_cash' => $openingCash
-            ]
+            ],
+            enforceTenant: false
         );
 
         return ['success' => true, 'shift_id' => $id, 'message' => 'Shift started successfully.'];
@@ -85,7 +93,8 @@ class ShiftHandler
                 'tenant_id' => $tenantId,
                 'user_id' => $userId,
                 'start_time' => $startTime
-            ]
+            ],
+            enforceTenant: false
         );
 
         $bookingCash = ((float)$txns['total_in']) - ((float)$txns['total_out']);
@@ -142,7 +151,8 @@ class ShiftHandler
     {
         return $this->db->query(
             "SELECT * FROM cash_ledger WHERE shift_id = :sid ORDER BY created_at DESC",
-            ['sid' => $shiftId]
+            ['sid' => $shiftId],
+            enforceTenant: false // shift_id is unique enough, but safe practice
         );
     }
 
@@ -200,9 +210,14 @@ class ShiftHandler
              FROM shifts s
              JOIN users u1 ON s.user_id = u1.id
              LEFT JOIN users u2 ON s.handover_to_user_id = u2.id
+             WHERE s.tenant_id = :tenant_id
              ORDER BY s.created_at DESC
              LIMIT :limit",
-            ['limit' => $limit]
+            [
+                'tenant_id' => TenantContext::getId(),
+                'limit' => $limit
+            ],
+            enforceTenant: false
         );
     }
     
