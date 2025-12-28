@@ -599,6 +599,28 @@ try {
         case '/admin/shifts':
             renderAdminShiftsPage($auth);
             break;
+
+        // ========== Admin: Staff Management (Phase G) ==========
+        case '/admin/staff':
+            renderAdminStaffPage($auth);
+            break;
+            
+        case '/admin/staff/create':
+            if ($requestMethod === 'POST') handleStaffCreate($auth);
+            else renderAdminStaffCreatePage($auth);
+            break;
+
+        case '/admin/staff/edit':
+            // Handles both GET (render) and POST (update)
+            if ($requestMethod === 'POST') handleStaffUpdate($auth);
+            else renderAdminStaffEditPage($auth);
+            break;
+
+        // ========== Admin: Cash Ledger (Phase G) ==========
+        case '/admin/ledger':
+            renderAdminLedgerPage($auth);
+            break;
+            break;
         case '/admin/shifts/verify':
             if ($requestMethod === 'POST') handleShiftVerify($auth);
             break;
@@ -1510,4 +1532,82 @@ function renderReportsPage(Auth $auth): void
     $content = ob_get_clean();
     
     include VIEWS_PATH . '/layouts/app.php';
+}
+
+// ==========================================
+// Phase G: Admin Controllers (Staff & Ledger)
+// ==========================================
+
+function renderAdminStaffPage(Auth $auth) {
+    if (!$auth->isManager()) {
+        header('Location: /dashboard');
+        exit;
+    }
+    
+    // View handles UserHandler Instantiation
+    require_once PUBLIC_PATH . '/../views/layouts/app.php';
+}
+
+function renderAdminStaffCreatePage(Auth $auth) {
+    if (!$auth->isManager()) {
+        header('Location: /dashboard');
+        exit;
+    }
+    require_once PUBLIC_PATH . '/../views/layouts/app.php';
+}
+
+function renderAdminStaffEditPage(Auth $auth) {
+    if (!$auth->isManager()) {
+        header('Location: /dashboard');
+        exit;
+    }
+    // We expect ?id=X
+    if (empty($_GET['id'])) {
+        header('Location: /admin/staff');
+        exit;
+    }
+    require_once PUBLIC_PATH . '/../views/layouts/app.php';
+}
+
+function handleStaffCreate(Auth $auth) {
+    if (!$auth->isManager()) {
+        header('HTTP/1.1 403 Forbidden');
+        exit;
+    }
+    
+    $handler = new \HotelOS\Handlers\UserHandler();
+    $result = $handler->create($_POST);
+    
+    if ($result['success']) {
+        header('Location: /admin/staff?success=created');
+    } else {
+        header('Location: /admin/staff/create?error=' . urlencode($result['error']));
+    }
+    exit;
+}
+
+function handleStaffUpdate(Auth $auth) {
+    if (!$auth->isManager()) {
+        header('HTTP/1.1 403 Forbidden');
+        exit;
+    }
+    
+    $id = (int)$_POST['id'];
+    $handler = new \HotelOS\Handlers\UserHandler();
+    $result = $handler->update($id, $_POST);
+    
+    if ($result['success']) {
+        header('Location: /admin/staff?success=updated');
+    } else {
+        header('Location: /admin/staff/edit?id=' . $id . '&error=' . urlencode($result['error'] ?? 'Update failed'));
+    }
+    exit;
+}
+
+function renderAdminLedgerPage(Auth $auth) {
+    if (!$auth->isManager()) {
+        header('Location: /dashboard');
+        exit;
+    }
+    require_once PUBLIC_PATH . '/../views/layouts/app.php';
 }
