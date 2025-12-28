@@ -194,13 +194,17 @@ $navItems = [
                 <i data-lucide="plus-circle"></i>
                 <span>New Booking</span>
             </a>
-            <a href="/bookings?action=checkin" class="quick-action-btn">
+            <a href="#" @click.prevent="$dispatch('open-quick-checkin')" class="quick-action-btn quick-action-btn--green">
                 <i data-lucide="log-in"></i>
                 <span>Check-in</span>
             </a>
-            <a href="/bookings?search=1" class="quick-action-btn">
-                <i data-lucide="search"></i>
-                <span>Find Guest</span>
+            <a href="/reports/police" class="quick-action-btn quick-action-btn--amber">
+                <i data-lucide="shield"></i>
+                <span>Police</span>
+            </a>
+            <a href="/reports/occupancy" class="quick-action-btn">
+                <i data-lucide="bar-chart-3"></i>
+                <span>Occupancy</span>
             </a>
         </div>
         
@@ -532,5 +536,26 @@ $navItems = [
     /* Hide quick actions when collapsed */
     .sidebar-nav--collapsed .quick-actions {
         display: none;
+    }
+    
+    /* Quick action color variants */
+    .quick-action-btn--green {
+        background: rgba(34, 197, 94, 0.15);
+        border-color: rgba(34, 197, 94, 0.3);
+        color: #22c55e;
+    }
+    
+    .quick-action-btn--green:hover {
+        background: rgba(34, 197, 94, 0.25);
+    }
+    
+    .quick-action-btn--amber {
+        background: rgba(245, 158, 11, 0.15);
+        border-color: rgba(245, 158, 11, 0.3);
+        color: #f59e0b;
+    }
+    
+    .quick-action-btn--amber:hover {
+        background: rgba(245, 158, 11, 0.25);
     }
 </style>

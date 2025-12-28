@@ -1,0 +1,425 @@
+/**
+ * HotelOS - Print Reports CSS
+ * 
+ * Styles for printable reports - both screen preview and print output
+ * Supports A4 and Thermal (80mm) formats
+ */
+
+/* =========================================
+   Screen Preview Styles
+   ========================================= */
+
+.report-container {
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.report-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.report-actions .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Print Button Styles */
+.btn-print {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+}
+
+.btn-pdf {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+}
+
+.btn-share {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: white;
+}
+
+.btn-whatsapp {
+    background: #25D366;
+    color: white;
+}
+
+/* Report Header */
+.report-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.report-header .hotel-name {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    margin-bottom: 0.25rem;
+}
+
+.report-header .hotel-address {
+    color: #94a3b8;
+    font-size: 0.875rem;
+}
+
+.report-header .hotel-gstin {
+    color: #22d3ee;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-top: 0.5rem;
+}
+
+/* Report Title */
+.report-title-bar {
+    background: rgba(34, 211, 238, 0.1);
+    border: 1px solid rgba(34, 211, 238, 0.2);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.report-title-bar h2 {
+    color: #22d3ee;
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.report-title-bar .date-range {
+    color: #94a3b8;
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
+}
+
+/* Summary Grid */
+.report-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.summary-stat {
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    text-align: center;
+}
+
+.summary-stat .value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #f1f5f9;
+}
+
+.summary-stat .label {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-top: 0.25rem;
+}
+
+.summary-stat--highlight .value {
+    color: #22d3ee;
+}
+
+.summary-stat--success .value {
+    color: #22c55e;
+}
+
+.summary-stat--warning .value {
+    color: #f59e0b;
+}
+
+/* Report Table */
+.report-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1.5rem;
+}
+
+.report-table th {
+    background: rgba(15, 23, 42, 0.8);
+    color: #94a3b8;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.report-table td {
+    padding: 0.75rem 1rem;
+    color: #e2e8f0;
+    font-size: 0.875rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.report-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.report-table .total-row {
+    background: rgba(34, 211, 238, 0.1);
+    font-weight: 600;
+}
+
+.report-table .total-row td {
+    color: #22d3ee;
+    border-top: 2px solid rgba(34, 211, 238, 0.3);
+}
+
+/* Report Footer */
+.report-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.signature-block {
+    text-align: center;
+    min-width: 150px;
+}
+
+.signature-line {
+    width: 150px;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.3);
+    margin: 30px auto 5px;
+}
+
+.signature-label {
+    font-size: 0.75rem;
+    color: #94a3b8;
+}
+
+.report-timestamp {
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+/* =========================================
+   Print Media Styles
+   ========================================= */
+
+@media print {
+
+    /* Reset */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    body {
+        background: white !important;
+        color: black !important;
+        font-family: 'Segoe UI', Arial, sans-serif !important;
+    }
+
+    /* Hide screen elements */
+    .no-print,
+    .sidebar-container,
+    .app-header,
+    .mobile-nav,
+    .quick-checkin-fab,
+    .report-actions,
+    .btn {
+        display: none !important;
+    }
+
+    /* Report container */
+    .report-container {
+        background: white !important;
+        border: none !important;
+        padding: 0 !important;
+        border-radius: 0 !important;
+    }
+
+    /* Header */
+    .report-header {
+        border-bottom: 2px solid black !important;
+    }
+
+    .report-header .hotel-name {
+        color: black !important;
+    }
+
+    .report-header .hotel-address,
+    .report-header .hotel-gstin {
+        color: #333 !important;
+    }
+
+    /* Title */
+    .report-title-bar {
+        background: #f0f0f0 !important;
+        border: 1px solid black !important;
+        border-radius: 0 !important;
+    }
+
+    .report-title-bar h2 {
+        color: black !important;
+    }
+
+    /* Summary */
+    .summary-stat {
+        background: #f9f9f9 !important;
+        border: 1px solid black !important;
+        border-radius: 0 !important;
+    }
+
+    .summary-stat .value {
+        color: black !important;
+    }
+
+    .summary-stat .label {
+        color: #333 !important;
+    }
+
+    /* Table */
+    .report-table th {
+        background: #e0e0e0 !important;
+        color: black !important;
+        border: 1px solid black !important;
+    }
+
+    .report-table td {
+        color: black !important;
+        border: 1px solid black !important;
+    }
+
+    .report-table .total-row {
+        background: #f0f0f0 !important;
+    }
+
+    .report-table .total-row td {
+        color: black !important;
+        font-weight: bold !important;
+    }
+
+    /* Footer */
+    .report-footer {
+        border-top: 1px solid black !important;
+    }
+
+    .signature-line {
+        background: black !important;
+    }
+
+    .signature-label,
+    .report-timestamp {
+        color: black !important;
+    }
+}
+
+/* A4 Print */
+@media print and (min-width: 200mm) {
+    @page {
+        size: A4;
+        margin: 15mm;
+    }
+
+    body {
+        font-size: 12px;
+    }
+}
+
+/* Thermal Print (80mm) */
+@media print and (max-width: 80mm) {
+    @page {
+        size: 80mm auto;
+        margin: 3mm;
+    }
+
+    body {
+        font-size: 10px;
+    }
+
+    .report-header .hotel-name {
+        font-size: 14px;
+    }
+
+    .report-table th,
+    .report-table td {
+        padding: 4px;
+        font-size: 9px;
+    }
+
+    .report-summary-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+/* =========================================
+   Police Report Specific Styles
+   ========================================= */
+
+.police-report-header {
+    background: #1e3a5f;
+    color: white;
+    padding: 1rem;
+    border-radius: 0.5rem 0.5rem 0 0;
+    margin-bottom: 0;
+}
+
+.police-report-header h2 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.guest-id-photo {
+    width: 100px;
+    height: 100px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.guest-id-photo img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: cover;
+}
+
+.police-report-table {
+    border: 2px solid #1e3a5f;
+}
+
+.police-report-table th {
+    background: #1e3a5f;
+    color: white;
+}
+
+@media print {
+    .police-report-header {
+        background: #333 !important;
+        -webkit-print-color-adjust: exact !important;
+    }
+
+    .police-report-table th {
+        background: #333 !important;
+        color: white !important;
+        -webkit-print-color-adjust: exact !important;
+    }
+}
