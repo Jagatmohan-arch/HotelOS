@@ -18,15 +18,18 @@ jobs:
           fetch-depth: 0
       
       - name: 🔄 Deploy via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
+          port: 21
           # CRITICAL: FTP user is ROOTED to project folder
-          # Using ./ to deploy directly, NOT /public_html/
           server-dir: ./
+          # Use standard FTP (not FTPS) for MilesWeb compatibility
           protocol: ftp
+          # IMPORTANT: This bypasses folder creation issues on first deploy
+          dangerous-clean-slate: true
           # Exclude non-production files
           exclude: |
             **/.git*
@@ -38,7 +41,9 @@ jobs:
             **/database/**
             **/.vscode/**
             **/.idea/**
-          log-level: standard
+          log-level: verbose
+          # Timeout settings for slow connections
+          timeout: 60000
       
       - name: ✅ Deployment Complete
         run: |
