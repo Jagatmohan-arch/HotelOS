@@ -127,11 +127,15 @@ $navItems = [
         
         closeMobile() {
             this.mobileOpen = false;
+        },
+        
+        toggleMobile() {
+            this.mobileOpen = !this.mobileOpen;
         }
-    }\"
-    @keydown.escape.window="mobileOpen = false"
-    @toggle-mobile-sidebar.window="mobileOpen = !mobileOpen"
-    @close-mobile-sidebar.window="mobileOpen = false"
+    }"
+    @keydown.escape.window="closeMobile()"
+    @toggle-mobile-sidebar.window="toggleMobile()"
+    @close-mobile-sidebar.window="closeMobile()"
     class="sidebar-container"
 >
     <!-- Mobile Overlay -->
