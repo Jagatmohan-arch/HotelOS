@@ -29,7 +29,7 @@ try {
     if ($existing) {
         // Update
         $db->execute(
-            "UPDATE users SET password = :pass, role = :role WHERE email = :email",
+            "UPDATE users SET password_hash = :pass, role = :role WHERE email = :email",
             ['pass' => $hash, 'role' => $role, 'email' => $email]
         );
         echo "<h1>Success!</h1>";
@@ -47,7 +47,7 @@ try {
         }
         
         $db->execute(
-            "INSERT INTO users (tenant_id, email, password, first_name, last_name, role) 
+            "INSERT INTO users (tenant_id, email, password_hash, first_name, last_name, role) 
              VALUES (:tid, :email, :pass, :fname, :lname, :role)",
             [
                 'tid' => $tenantId,
