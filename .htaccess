@@ -18,8 +18,8 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     
-    # Route everything to public/index.php
-    RewriteRule ^(.*)$ public/index.php [QSA,L]
+    # Route everything to index.php (root level)
+    RewriteRule ^(.*)$ index.php [QSA,L]
 </IfModule>
 
 # ============================================
