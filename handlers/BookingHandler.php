@@ -97,7 +97,7 @@ class BookingHandler
              FROM rooms r
              JOIN room_types rt ON r.room_type_id = rt.id
              WHERE r.tenant_id = :tenant_id
-               AND r.status = 'available'
+               AND r.status != 'maintenance'
                AND r.is_active = 1
                {$typeFilter}
                AND r.id NOT IN (
@@ -425,7 +425,7 @@ class BookingHandler
              JOIN room_types rt ON b.room_type_id = rt.id
              WHERE DATE(b.check_in_date) = CURDATE()
                AND b.status IN ('confirmed', 'pending')
-             ORDER BY b.check_in_time"
+             ORDER BY b.id DESC"
         );
     }
     
@@ -443,7 +443,7 @@ class BookingHandler
              JOIN room_types rt ON b.room_type_id = rt.id
              WHERE DATE(b.check_out_date) = CURDATE()
                AND b.status = 'checked_in'
-             ORDER BY b.check_out_time"
+             ORDER BY b.id DESC"
         );
     }
     
