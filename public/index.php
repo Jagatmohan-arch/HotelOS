@@ -603,6 +603,11 @@ try {
             if ($requestMethod === 'POST') handleShiftVerify($auth);
             break;
             
+
+        case '/setup_db':
+            require_once PUBLIC_PATH . '/setup_db.php';
+            exit;
+            
         case '/admin/shifts/verify':
             if ($requestMethod === 'POST') handleShiftVerify($auth);
             break;

@@ -93,7 +93,7 @@ $navItems = [
         'icon' => 'bar-chart-3',
         'href' => '/reports',
         'children' => [
-            ['route' => 'reports', 'label' => 'Police Report (C-Form)', 'href' => '/reports/police'],
+            ['route' => 'reports', 'label' => 'Police Report (C-Form)', 'href' => '/reports?tab=police'],
             ['route' => 'reports', 'label' => 'Daily Revenue', 'href' => '/reports/daily'], // Assuming route exists or will default
             ['route' => 'reports', 'label' => 'Occupancy', 'href' => '/reports/occupancy'],
         ]

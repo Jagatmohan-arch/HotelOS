@@ -12,6 +12,7 @@ namespace HotelOS\Handlers;
 
 use HotelOS\Core\Database;
 use HotelOS\Core\TenantContext;
+use HotelOS\Core\Auth;
 
 class BookingHandler
 {
