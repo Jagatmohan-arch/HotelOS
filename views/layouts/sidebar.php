@@ -15,6 +15,10 @@
 $currentRoute = $currentRoute ?? 'dashboard';
 $user = $user ?? ['first_name' => 'User', 'role' => 'user'];
 
+// Load subscription data for trial badge
+$subscriptionHandler = new \HotelOS\Handlers\SubscriptionHandler();
+$subscriptionData = $subscriptionHandler->getCurrentSubscription();
+
 // Navigation items with icons
 $navItems = [
     [
@@ -56,6 +60,16 @@ $navItems = [
         'label' => 'Reports',
         'icon' => 'bar-chart-3',
         'href' => '/reports',
+    ],
+    [
+        'route' => 'subscription',
+        'label' => 'Subscription',
+        'icon' => 'crown',
+        'href' => '/subscription',
+        'badge' => $subscriptionData['is_trial'] && !$subscriptionData['is_expired'] 
+            ? $subscriptionData['days_remaining'] . 'd' 
+            : null,
+        'badgeColor' => $subscriptionData['days_remaining'] <= 3 ? 'red' : 'cyan',
     ],
     [
         'route' => 'settings',
@@ -202,9 +216,17 @@ $navItems = [
                                 <?php endif; ?>
                             >
                                 <i data-lucide="<?= $item['icon'] ?>" class="nav-link-icon"></i>
-                                <span x-show="expanded || mobileOpen" class="nav-link-text">
+                                <span x-show="expanded || mobileOpen" class="nav-link-text flex-1">
                                     <?= htmlspecialchars($item['label']) ?>
                                 </span>
+                                <?php if (!empty($item['badge'])): ?>
+                                <span 
+                                    x-show="expanded || mobileOpen" 
+                                    class="nav-badge nav-badge--<?= $item['badgeColor'] ?? 'cyan' ?>"
+                                >
+                                    <?= htmlspecialchars($item['badge']) ?>
+                                </span>
+                                <?php endif; ?>
                             </a>
                         </li>
                     <?php endif; ?>
@@ -331,5 +353,32 @@ $navItems = [
         padding: 0.5rem;
         border-radius: 0.5rem;
         background: rgba(255, 255, 255, 0.03);
+    }
+    
+    /* Nav Badge (for trial countdown etc) */
+    .nav-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.125rem 0.5rem;
+        font-size: 0.6875rem;
+        font-weight: 600;
+        border-radius: 9999px;
+        letter-spacing: 0.02em;
+    }
+    
+    .nav-badge--cyan {
+        background: rgba(34, 211, 238, 0.15);
+        color: #22d3ee;
+    }
+    
+    .nav-badge--red {
+        background: rgba(248, 113, 113, 0.15);
+        color: #f87171;
+        animation: pulse-badge 2s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-badge {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; }
     }
 </style>

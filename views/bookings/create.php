@@ -56,6 +56,14 @@ $roomTypes = $roomTypes ?? [];
             </div>
         </div>
         
+        <!-- OCR Scan Section -->
+        <div class="ocr-section">
+            <div class="ocr-divider">
+                <span>OR</span>
+            </div>
+            <div id="ocr-upload-container"></div>
+        </div>
+        
         <div id="guest-results" class="guest-results" style="display: none;"></div>
         
         <input type="hidden" id="guest_id" name="guest_id" value="">
@@ -438,6 +446,32 @@ $roomTypes = $roomTypes ?? [];
 .btn--lg { padding: 1rem 2rem; font-size: 1rem; }
 
 .text-muted { color: #64748b; }
+
+/* OCR Section */
+.ocr-section {
+    margin: 1.5rem 0;
+}
+
+.ocr-divider {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.ocr-divider::before,
+.ocr-divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ocr-divider span {
+    padding: 0 1rem;
+    color: #64748b;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
 </style>
 
 <script>
@@ -456,6 +490,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Load room types
     loadRoomTypes();
+    
+    // Initialize OCR Upload Component
+    initOCRUpload();
     
     // Debounced phone search
     let debounceTimer;
@@ -745,4 +782,118 @@ async function createBooking() {
         alert('Failed to create booking: ' + (data.error || 'Unknown error'));
     }
 }
+
+// ============================================
+// OCR Check-in Integration
+// ============================================
+
+function initOCRUpload() {
+    // Check if container exists
+    const container = document.getElementById('ocr-upload-container');
+    if (!container) return;
+    
+    // Initialize OCR UI component
+    const ocrUI = new OCRUploadUI('#ocr-upload-container', {
+        onResult: function(result) {
+            console.log('OCR Result:', result);
+            
+            if (result.extracted) {
+                // Show guest form
+                document.getElementById('guest-results').style.display = 'none';
+                document.getElementById('guest-form').style.display = 'block';
+                document.getElementById('guest_id').value = '';
+                
+                // Enable editing for new guest
+                document.getElementById('first_name').readOnly = false;
+                document.getElementById('last_name').readOnly = false;
+                
+                // Auto-fill fields from OCR
+                const data = result.extracted;
+                
+                // Name (split first/last)
+                if (data.name) {
+                    const nameParts = data.name.split(' ');
+                    document.getElementById('first_name').value = nameParts[0] || '';
+                    document.getElementById('last_name').value = nameParts.slice(1).join(' ') || '';
+                }
+                
+                // ID Type and Number
+                if (data.id_type) {
+                    const idTypeMap = {
+                        'Aadhaar': 'aadhaar',
+                        'PAN': 'pan',
+                        'Passport': 'passport',
+                    };
+                    document.getElementById('id_type').value = idTypeMap[data.id_type] || '';
+                }
+                
+                if (data.id_number) {
+                    document.getElementById('id_number').value = data.id_number;
+                }
+                
+                // Phone
+                if (data.phone) {
+                    document.getElementById('phone').value = data.phone;
+                }
+                
+                // Address
+                if (data.address) {
+                    document.getElementById('address').value = data.address;
+                }
+                
+                // Show success message
+                showNotification('ID scanned successfully! Please verify the details.', 'success');
+            } else {
+                showNotification('Could not extract information. Please enter manually.', 'warning');
+            }
+        },
+        onError: function(message) {
+            showNotification(message, 'error');
+        }
+    });
+}
+
+function showNotification(message, type = 'info') {
+    // Create toast notification
+    const toast = document.createElement('div');
+    toast.className = `toast toast--${type}`;
+    toast.innerHTML = `
+        <span>${message}</span>
+        <button onclick="this.parentElement.remove()">×</button>
+    `;
+    
+    // Add styles if not present
+    if (!document.getElementById('toast-styles')) {
+        const styles = document.createElement('style');
+        styles.id = 'toast-styles';
+        styles.textContent = `
+            .toast {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 1rem 1.5rem;
+                border-radius: 8px;
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+                z-index: 1000;
+                animation: slideIn 0.3s ease;
+                max-width: 400px;
+            }
+            .toast--success { background: #22c55e; color: white; }
+            .toast--error { background: #ef4444; color: white; }
+            .toast--warning { background: #f59e0b; color: white; }
+            .toast--info { background: #3b82f6; color: white; }
+            .toast button { background: none; border: none; color: inherit; font-size: 1.5rem; cursor: pointer; }
+            @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        `;
+        document.head.appendChild(styles);
+    }
+    
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 5000);
+}
 </script>
+
+<!-- OCR Check-in Library -->
+<script src="/assets/js/ocr-checkin.js"></script>

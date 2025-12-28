@@ -10,6 +10,9 @@
 
 declare(strict_types=1);
 
+// Database credentials - Uses environment variables with production fallbacks
+// For local development, set environment variables or use these defaults
+
 return [
     'driver'    => 'mysql',
     'host'      => getenv('DB_HOST') ?: 'localhost',

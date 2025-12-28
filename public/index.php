@@ -8,9 +8,10 @@
 
 declare(strict_types=1);
 
-// Error handling - TEMPORARY DEBUG MODE
+// Error handling - Environment-based debug mode
 error_reporting(E_ALL);
-ini_set('display_errors', '1');  // TEMPORARY - TURN OFF IN PRODUCTION
+$isDebug = (bool)(getenv('APP_DEBUG') ?: false);
+ini_set('display_errors', $isDebug ? '1' : '0');
 ini_set('log_errors', '1');
 
 // Define base paths - Works whether accessed directly or via root/index.php
@@ -349,7 +350,7 @@ try {
     }
     
     // Protected routes - require authentication
-    $protectedRoutes = ['/dashboard', '/room-types', '/rooms', '/guests', '/bookings', '/settings', '/housekeeping'];
+    $protectedRoutes = ['/dashboard', '/room-types', '/rooms', '/guests', '/bookings', '/settings', '/housekeeping', '/subscription', '/pos', '/reports'];
     if (in_array($requestUri, $protectedRoutes) && !$auth->check()) {
         header('Location: /');
         exit;
@@ -489,6 +490,11 @@ try {
         // ========== Reports ==========
         case '/reports':
             renderReportsPage($auth);
+            break;
+        
+        // ========== Subscription ==========
+        case '/subscription':
+            renderSubscriptionPage($auth);
             break;
             
         default:
@@ -764,6 +770,26 @@ function renderErrorPage(int $code, string $message): void
     <?php
     $content = ob_get_clean();
     echo $content;
+}
+
+function renderSubscriptionPage(Auth $auth): void
+{
+    $user = $auth->user();
+    $csrfToken = $auth->csrfToken();
+    
+    $handler = new \HotelOS\Handlers\SubscriptionHandler();
+    $subscription = $handler->getCurrentSubscription();
+    $plans = $handler->getAllPlans();
+    
+    $title = 'Subscription Plans';
+    $currentRoute = 'subscription';
+    $breadcrumbs = [['label' => 'Subscription']];
+    
+    ob_start();
+    include VIEWS_PATH . '/subscription/index.php';
+    $content = ob_get_clean();
+    
+    include VIEWS_PATH . '/layouts/app.php';
 }
 
 // ============================================
