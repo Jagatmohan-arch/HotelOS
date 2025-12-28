@@ -300,6 +300,18 @@ $roomTypes = $roomTypes ?? [];
     border-radius: 1rem;
 }
 
+@media (max-width: 640px) {
+    .booking-wizard {
+        padding: 1rem; /* Reduced from 2rem */
+    }
+    .wizard-steps {
+        gap: 0.5rem;
+    }
+    .wizard-step__label {
+        display: none; /* Hide labels on mobile to save space */
+    }
+}
+
 .wizard-panel { display: none; }
 .wizard-panel.active { display: block; }
 

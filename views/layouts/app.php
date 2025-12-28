@@ -91,8 +91,8 @@ $breadcrumbs = $breadcrumbs ?? [];
     <style>
         :root {
             --sidebar-width: 280px;
-            --sidebar-collapsed: 72px;
-            --header-height: 64px;
+            --sidebar-collapsed: 72px; /* Tablet Only */
+            --header-height: 56px; /* Owner Control Tower Spec */
             --bg-cosmic: #0f172a;
             --glass-bg: rgba(30, 41, 59, 0.8);
             --neon-cyan: #22d3ee;
@@ -443,7 +443,7 @@ $breadcrumbs = $breadcrumbs ?? [];
         /* Room Status Grid */
         .room-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
             gap: 0.75rem;
         }
         
@@ -571,55 +571,63 @@ $breadcrumbs = $breadcrumbs ?? [];
         
         <!-- Main Wrapper -->
         <div class="main-wrapper">
-            <!-- Header -->
+            <!-- Header (Global Status Bar) -->
             <header class="app-header">
-                <!-- Mobile Menu Toggle (Tablet only, hidden on mobile & desktop) -->
+                <!-- Mobile Menu Toggle (Tablet/Mobile only) -->
                 <button 
                     @click="$dispatch('toggle-mobile-sidebar')"
-                    class="hidden md:block lg:hidden mr-4 p-2 -ml-2 rounded-lg hover:bg-slate-700/50 text-slate-400"
+                    class="lg:hidden mr-4 p-2 -ml-2 rounded-lg hover:bg-slate-700/50 text-slate-400"
                 >
                     <i data-lucide="menu" class="w-5 h-5"></i>
                 </button>
                 
-                <!-- Breadcrumb -->
-                <nav class="flex items-center gap-2 text-sm">
-                    <a href="/dashboard" class="text-slate-500 hover:text-slate-300">
-                        <i data-lucide="home" class="w-4 h-4"></i>
-                    </a>
-                    <?php if (!empty($breadcrumbs)): ?>
-                        <?php foreach ($breadcrumbs as $crumb): ?>
-                            <span class="text-slate-600">/</span>
-                            <?php if (!empty($crumb['href'])): ?>
-                                <a href="<?= $crumb['href'] ?>" class="text-slate-400 hover:text-slate-200">
-                                    <?= htmlspecialchars($crumb['label']) ?>
-                                </a>
-                            <?php else: ?>
-                                <span class="text-slate-300"><?= htmlspecialchars($crumb['label']) ?></span>
-                            <?php endif; ?>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <span class="text-slate-600">/</span>
-                        <span class="text-slate-300"><?= htmlspecialchars($title) ?></span>
-                    <?php endif; ?>
-                </nav>
+                <!-- Left: Hotel Status -->
+                <div class="flex items-center gap-4">
+                    <div class="flex flex-col">
+                        <span class="text-sm font-bold text-white tracking-wide">HotelOS Demo</span>
+                        <div class="flex items-center gap-2 text-xs text-slate-400">
+                            <span><?= date('d M Y') ?></span>
+                            <span class="w-1 h-1 rounded-full bg-slate-600"></span>
+                            <span class="text-emerald-400 font-medium">Shift Active</span>
+                        </div>
+                    </div>
+                </div>
                 
-                <!-- Spacer -->
-                <div class="flex-1"></div>
+                <!-- Center: Alerts Bar -->
+                <div class="flex-1 flex justify-center px-8">
+                    <div class="hidden md:flex items-center gap-6 text-sm">
+                        <!-- Alert Item -->
+                        <div class="flex items-center gap-2 text-amber-400 bg-amber-400/10 px-3 py-1 rounded-full border border-amber-400/20">
+                            <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+                            <span> Checkout Time 11:00 AM</span>
+                        </div>
+                        <!-- Space for more alerts (Dynamic in future) -->
+                    </div>
+                </div>
                 
-                <!-- Header Actions -->
-                <div class="flex items-center gap-3">
+                <!-- Right: User Controls -->
+                <div class="flex items-center gap-4">
                     <!-- Notifications -->
-                    <button class="p-2 rounded-lg hover:bg-slate-700/50 text-slate-400 hover:text-slate-200 relative">
+                    <button class="relative text-slate-400 hover:text-white transition-colors">
                         <i data-lucide="bell" class="w-5 h-5"></i>
-                        <span class="absolute top-1 right-1 w-2 h-2 bg-cyan-400 rounded-full"></span>
+                        <span class="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
                     </button>
                     
-                    <!-- Quick Search -->
-                    <button class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/50 border border-slate-700/50 text-slate-500 text-sm hover:border-slate-600">
-                        <i data-lucide="search" class="w-4 h-4"></i>
-                        <span>Search...</span>
-                        <kbd class="ml-2 px-1.5 py-0.5 rounded bg-slate-700 text-xs">⌘K</kbd>
-                    </button>
+                    <div class="h-6 w-px bg-slate-700/50"></div>
+                    
+                    <!-- User Profile -->
+                    <div class="flex items-center gap-3">
+                        <div class="text-right hidden md:block">
+                            <div class="text-sm font-medium text-white"><?= htmlspecialchars($user['first_name']) ?></div>
+                            <div class="text-[10px] uppercase tracking-wider text-cyan-400 font-bold"><?= htmlspecialchars($user['role']) ?></div>
+                        </div>
+                        <div class="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center text-xs font-bold ring-2 ring-slate-800">
+                            <?= strtoupper(substr($user['first_name'], 0, 1)) ?>
+                        </div>
+                        <a href="/logout" class="text-slate-400 hover:text-red-400 ml-1" title="Logout">
+                            <i data-lucide="log-out" class="w-4 h-4"></i>
+                        </a>
+                    </div>
                 </div>
             </header>
             

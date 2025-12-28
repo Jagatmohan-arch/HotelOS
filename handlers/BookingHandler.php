@@ -282,7 +282,8 @@ class BookingHandler
         }
         
         // Calculate late checkout fee based on settings
-        $now = new \DateTime();
+        $timezone = TenantContext::attr('timezone', 'Asia/Kolkata');
+        $now = new \DateTime('now', new \DateTimeZone($timezone));
         $checkoutHour = (int)$now->format('H');
         $calculatedLateFee = 0;
         

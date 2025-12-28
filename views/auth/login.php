@@ -191,9 +191,17 @@ $loginType = $_GET['type'] ?? 'owner';
 .orb {
     position: absolute;
     border-radius: 50%;
-    filter: blur(80px);
     opacity: 0.4;
     animation: float 20s ease-in-out infinite;
+    /* Mobile Optimization: Reduce blur to save GPU */
+    will-change: transform;
+}
+
+@media (max-width: 640px) {
+    .orb {
+        filter: blur(40px); /* Reduced from 80px */
+        animation-duration: 30s; /* Slower animation for less busy-ness */
+    }
 }
 
 .orb-1 {

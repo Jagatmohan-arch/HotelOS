@@ -8,6 +8,9 @@
 
 $pageTitle = 'Front Desk | HotelOS';
 $activeNav = 'bookings';
+$currentTab = $_GET['tab'] ?? 'arrivals';
+$validTabs = ['arrivals', 'departures', 'inhouse'];
+if (!in_array($currentTab, $validTabs)) $currentTab = 'arrivals';
 ?>
 
 <div class="page-header">
@@ -85,15 +88,15 @@ $activeNav = 'bookings';
 
 <!-- Tab Navigation -->
 <div class="tabs">
-    <button class="tab-btn active" data-tab="arrivals">🛬 Arrivals</button>
-    <button class="tab-btn" data-tab="departures">🛫 Departures</button>
-    <button class="tab-btn" data-tab="inhouse">🏨 In-House</button>
+    <button class="tab-btn <?= $currentTab === 'arrivals' ? 'active' : '' ?>" data-tab="arrivals">🛬 Arrivals</button>
+    <button class="tab-btn <?= $currentTab === 'departures' ? 'active' : '' ?>" data-tab="departures">🛫 Departures</button>
+    <button class="tab-btn <?= $currentTab === 'inhouse' ? 'active' : '' ?>" data-tab="inhouse">🏨 In-House</button>
 </div>
 
 <!-- Tab Content -->
 <div class="tab-content">
     <!-- Arrivals Table -->
-    <div class="tab-pane active" id="arrivals-tab">
+    <div class="tab-pane <?= $currentTab === 'arrivals' ? 'active' : '' ?>" id="arrivals-tab">
         <div class="table-container glass-card">
             <table class="data-table">
                 <thead>
@@ -114,7 +117,7 @@ $activeNav = 'bookings';
     </div>
     
     <!-- Departures Table -->
-    <div class="tab-pane" id="departures-tab">
+    <div class="tab-pane <?= $currentTab === 'departures' ? 'active' : '' ?>" id="departures-tab">
         <div class="table-container glass-card">
             <table class="data-table">
                 <thead>
@@ -134,7 +137,7 @@ $activeNav = 'bookings';
     </div>
     
     <!-- In-House Table -->
-    <div class="tab-pane" id="inhouse-tab">
+    <div class="tab-pane <?= $currentTab === 'inhouse' ? 'active' : '' ?>" id="inhouse-tab">
         <div class="table-container glass-card">
             <table class="data-table">
                 <thead>

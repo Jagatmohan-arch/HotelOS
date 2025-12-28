@@ -158,6 +158,21 @@
                             <label class="form-label">ID Number</label>
                             <input type="text" x-model="newGuest.id_number" class="form-input">
                         </div>
+                        <div class="form-group col-span-2">
+                            <label class="form-label">Upload ID / Photo <span class="text-xs text-slate-400">(Optional)</span></label>
+                            <div class="flex items-center gap-2">
+                                <label class="flex-1 cursor-pointer">
+                                    <div class="flex items-center gap-2 px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg hover:bg-slate-700 transition-colors">
+                                        <i data-lucide="camera" class="w-4 h-4 text-cyan-400"></i>
+                                        <span class="text-sm text-slate-300">Take Photo / Upload</span>
+                                        <input type="file" accept="image/*" capture="environment" class="hidden" @change="handleFileUpload($event)">
+                                    </div>
+                                </label>
+                                <span x-show="idFile" class="text-xs text-emerald-400 flex items-center gap-1">
+                                    <i data-lucide="check-circle" class="w-3 h-3"></i> Selected
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -664,6 +679,15 @@ function quickCheckin() {
             phone: '',
             id_type: '',
             id_number: ''
+        },
+        idFile: null,
+        
+        handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                this.idFile = file;
+                // Validations or preview could go here
+            }
         },
         today: new Date().toISOString().split('T')[0],
         checkOutDate: '',

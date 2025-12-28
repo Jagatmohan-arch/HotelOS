@@ -20,96 +20,96 @@ $subscriptionHandler = new \HotelOS\Handlers\SubscriptionHandler();
 $subscriptionData = $subscriptionHandler->getCurrentSubscription();
 
 // Navigation items with icons
+// Navigation items - OWNER CONTROL TOWER HIERARCHY
 $navItems = [
+    // 1. Dashboard
     [
         'route' => 'dashboard',
         'label' => 'Dashboard',
         'icon' => 'layout-dashboard',
         'href' => '/dashboard',
-        'hideOnMobile' => true,
     ],
+    // 2. Front Desk (Virtual Routing)
+    [
+        'route' => 'front-desk',
+        'label' => 'Front Desk',
+        'icon' => 'monitor-check',
+        'href' => '#',
+        'children' => [
+            ['route' => 'bookings', 'label' => 'In-House Guests', 'href' => '/bookings?tab=inhouse'],
+            ['route' => 'bookings', 'label' => 'Today Arrivals', 'href' => '/bookings?tab=arrivals'],
+            ['route' => 'bookings', 'label' => 'Today Departures', 'href' => '/bookings?tab=departures'],
+            ['route' => 'rooms', 'label' => 'Room Status Board', 'href' => '/rooms?view=grid'],
+        ],
+    ],
+    // 3. Bookings
+    [
+        'route' => 'bookings',
+        'label' => 'Bookings',
+        'icon' => 'calendar-days',
+        'href' => '/bookings',
+        'children' => [
+            ['route' => 'bookings', 'label' => 'All Bookings', 'href' => '/bookings'],
+            ['route' => 'bookings', 'label' => 'New Booking', 'href' => '/bookings/create'],
+            // Future: Calendar View
+        ],
+    ],
+    // 4. Rooms
     [
         'route' => 'rooms',
         'label' => 'Rooms',
         'icon' => 'bed-double',
         'href' => '/rooms',
         'children' => [
-            ['route' => 'rooms', 'label' => 'All Rooms', 'href' => '/rooms'],
+            ['route' => 'rooms', 'label' => 'Room List', 'href' => '/rooms'],
             ['route' => 'room-types', 'label' => 'Room Types', 'href' => '/room-types'],
         ],
-        'hideOnMobile' => true,
     ],
-    [
-        'route' => 'bookings',
-        'label' => 'Bookings',
-        'icon' => 'calendar-check',
-        'href' => '/bookings',
-        'hideOnMobile' => true,
-    ],
+    // 5. Housekeeping
     [
         'route' => 'housekeeping',
         'label' => 'Housekeeping',
         'icon' => 'spray-can',
         'href' => '/housekeeping',
     ],
+    // 6. POS / Extras
     [
         'route' => 'pos',
         'label' => 'POS & Extras',
         'icon' => 'shopping-cart',
         'href' => '/pos',
     ],
+    // 7. Shifts & Cash
     [
         'route' => 'shifts',
-        'label' => 'Shift Handover',
-        'icon' => 'clock', // Lucide icon
+        'label' => 'Shifts & Cash',
+        'icon' => 'banknote',
         'href' => '/shifts',
-        'roles' => ['owner', 'manager', 'reception']
     ],
-    [
-        'label' => 'Audit Shifts',
-        'icon' => 'clipboard-check',
-        'href' => '/admin/shifts',
-        'roles' => ['owner', 'manager']
-    ],
-    [
-        'label' => 'Daily Report',
-        'icon' => 'bar-chart-3',
-        'href' => '/admin/reports/daily',
-        'roles' => ['owner', 'manager']
-    ],
-    [
-        'label' => 'Security Audit',
-        'icon' => 'shield',
-        'href' => '/admin/security/audit',
-        'roles' => ['owner']
-    ],
-    [
-        'label' => 'Guests',
-        'icon' => 'users',
-        'href' => '/guests',
-        'roles' => ['owner', 'manager', 'reception']
-    ],
+    // 8. Reports
     [
         'route' => 'reports',
         'label' => 'Reports',
         'icon' => 'bar-chart-3',
         'href' => '/reports',
+        'children' => [
+            ['route' => 'reports', 'label' => 'Police Report (C-Form)', 'href' => '/reports/police'],
+            ['route' => 'reports', 'label' => 'Daily Revenue', 'href' => '/reports/daily'], // Assuming route exists or will default
+            ['route' => 'reports', 'label' => 'Occupancy', 'href' => '/reports/occupancy'],
+        ]
     ],
-    [
-        'route' => 'subscription',
-        'label' => 'Subscription',
-        'icon' => 'crown',
-        'href' => '/subscription',
-        'badge' => $subscriptionData['is_trial'] && !$subscriptionData['is_expired'] 
-            ? $subscriptionData['days_remaining'] . 'd' 
-            : null,
-        'badgeColor' => $subscriptionData['days_remaining'] <= 3 ? 'red' : 'cyan',
-    ],
+    // 9. Administration (Owner Only)
     [
         'route' => 'settings',
-        'label' => 'Settings',
-        'icon' => 'settings',
+        'label' => 'Administration',
+        'icon' => 'shield-check',
         'href' => '/settings',
+        'roles' => ['owner'],
+        'children' => [
+            ['route' => 'settings', 'label' => 'Hotel Settings', 'href' => '/settings'],
+            ['route' => 'settings', 'label' => 'Tax & GST', 'href' => '/settings?tab=tax'],
+            // Future: Staff Manager
+        ]
     ],
 ];
 ?>
@@ -128,11 +128,15 @@ $navItems = [
             this.isMobile = window.innerWidth < 768;
             this.isTablet = window.innerWidth >= 768 && window.innerWidth < 1024;
             
-            // Mobile: always collapsed, Desktop: respect localStorage
-            if (this.isMobile) {
+            // DESKTOP RULE: Always Expanded (Control Tower)
+            if (!this.isMobile && !this.isTablet) {
+                this.expanded = true;
+                localStorage.setItem('sidebarExpanded', 'true');
+            } else if (this.isMobile) {
                 this.expanded = false;
                 this.mobileOpen = false;
             } else {
+                // Tablet logic
                 this.expanded = localStorage.getItem('sidebarExpanded') !== 'false';
             }
             
@@ -141,9 +145,10 @@ $navItems = [
                 this.isMobile = window.innerWidth < 768;
                 this.isTablet = window.innerWidth >= 768 && window.innerWidth < 1024;
                 
-                // Auto-close mobile sidebar on resize to desktop
-                if (!this.isMobile && this.mobileOpen) {
-                    this.mobileOpen = false;
+                // Enforce desktop rule on resize
+                if (!this.isMobile && !this.isTablet) {
+                    this.expanded = true;
+                    if (this.mobileOpen) this.mobileOpen = false;
                 }
             });
         },
@@ -186,7 +191,7 @@ $navItems = [
         x-transition:leave-start="opacity-100"
         x-transition:leave-end="opacity-0"
         @click="mobileOpen = false"
-        class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[69] lg:hidden"
     ></div>
     
     <!-- Sidebar Panel -->
@@ -199,7 +204,7 @@ $navItems = [
             // Mobile: use mobileOpen for visibility
             isMobile && mobileOpen ? 'sidebar-nav--mobile-open' : ''
         ]"
-        class="fixed left-0 top-0 h-full z-50 flex flex-col transition-all duration-300"
+        class="fixed left-0 top-0 h-full z-[70] flex flex-col transition-all duration-300"
     >
         <!-- Logo Section -->
         <div class="sidebar-header">
@@ -216,21 +221,16 @@ $navItems = [
                 </span>
             </a>
             
-            <!-- Collapse Button (Desktop) -->
-            <button 
-                @click="toggleExpanded()"
-                class="hidden lg:flex items-center justify-center w-8 h-8 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 text-slate-400 hover:text-white transition-colors"
-                :title="expanded ? 'Collapse' : 'Expand'"
-            >
-                <i :data-lucide="expanded ? 'chevron-left' : 'chevron-right'" class="w-4 h-4"></i>
-            </button>
+            <!-- Collapse Button (Removed for Desktop Control Tower) -->
+            <!-- Fixed state only -->
             
             <!-- Close Button (Mobile) -->
             <button 
                 @click="mobileOpen = false"
-                class="lg:hidden flex items-center justify-center w-8 h-8 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 text-slate-400 hover:text-white transition-colors"
+                class="lg:hidden flex items-center justify-center w-12 h-12 -mr-2 rounded-lg hover:bg-slate-600/50 text-slate-400 hover:text-white transition-colors"
+                aria-label="Close Menu"
             >
-                <i data-lucide="x" class="w-4 h-4"></i>
+                <i data-lucide="x" class="w-6 h-6"></i>
             </button>
         </div>
         
