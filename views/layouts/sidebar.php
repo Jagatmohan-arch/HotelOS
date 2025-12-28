@@ -26,6 +26,7 @@ $navItems = [
         'label' => 'Dashboard',
         'icon' => 'layout-dashboard',
         'href' => '/dashboard',
+        'hideOnMobile' => true,
     ],
     [
         'route' => 'rooms',
@@ -35,13 +36,15 @@ $navItems = [
         'children' => [
             ['route' => 'rooms', 'label' => 'All Rooms', 'href' => '/rooms'],
             ['route' => 'room-types', 'label' => 'Room Types', 'href' => '/room-types'],
-        ]
+        ],
+        'hideOnMobile' => true,
     ],
     [
         'route' => 'bookings',
         'label' => 'Bookings',
         'icon' => 'calendar-check',
         'href' => '/bookings',
+        'hideOnMobile' => true,
     ],
     [
         'route' => 'housekeeping',
@@ -54,6 +57,36 @@ $navItems = [
         'label' => 'POS & Extras',
         'icon' => 'shopping-cart',
         'href' => '/pos',
+    ],
+    [
+        'label' => 'Shift Handover',
+        'icon' => 'clock', // Lucide icon
+        'href' => '/shifts',
+        'roles' => ['owner', 'manager', 'reception']
+    ],
+    [
+        'label' => 'Audit Shifts',
+        'icon' => 'clipboard-check',
+        'href' => '/admin/shifts',
+        'roles' => ['owner', 'manager']
+    ],
+    [
+        'label' => 'Daily Report',
+        'icon' => 'bar-chart-3',
+        'href' => '/admin/reports/daily',
+        'roles' => ['owner', 'manager']
+    ],
+    [
+        'label' => 'Security Audit',
+        'icon' => 'shield',
+        'href' => '/admin/security/audit',
+        'roles' => ['owner']
+    ],
+    [
+        'label' => 'Guests',
+        'icon' => 'users',
+        'href' => '/guests',
+        'roles' => ['owner', 'manager', 'reception']
     ],
     [
         'route' => 'reports',
@@ -130,7 +163,11 @@ $navItems = [
         },
         
         toggleMobile() {
-            this.mobileOpen = !this.mobileOpen;
+            if (!this.isMobile) {
+                this.toggleExpanded();
+            } else {
+                this.mobileOpen = !this.mobileOpen;
+            }
         }
     }"
     @keydown.escape.window="closeMobile()"
@@ -155,8 +192,11 @@ $navItems = [
     <nav 
         :class="[
             'sidebar-nav',
-            expanded ? 'sidebar-nav--expanded' : 'sidebar-nav--collapsed',
-            mobileOpen ? 'sidebar-nav--mobile-open' : ''
+            // Desktop/Tablet: use expanded for width
+            !isMobile && expanded ? 'sidebar-nav--expanded' : '',
+            !isMobile && !expanded ? 'sidebar-nav--collapsed' : '',
+            // Mobile: use mobileOpen for visibility
+            isMobile && mobileOpen ? 'sidebar-nav--mobile-open' : ''
         ]"
         class="fixed left-0 top-0 h-full z-50 flex flex-col transition-all duration-300"
     >
@@ -222,9 +262,11 @@ $navItems = [
                                 (isset($item['children']) && in_array($currentRoute, array_column($item['children'], 'route')));
                     ?>
                     
+                    <?php endif; ?>
+                    
                     <?php if (isset($item['children'])): ?>
                         <!-- Dropdown Item -->
-                        <li>
+                        <li class="<?= !empty($item['hideOnMobile']) ? 'hidden md:block' : '' ?>">
                             <button 
                                 @click="toggleDropdown('<?= $item['route'] ?>')"
                                 class="nav-link w-full <?= $isActive ? 'nav-link--active' : '' ?>"
@@ -267,7 +309,7 @@ $navItems = [
                         </li>
                     <?php else: ?>
                         <!-- Regular Link -->
-                        <li>
+                        <li class="<?= !empty($item['hideOnMobile']) ? 'hidden md:block' : '' ?>">
                             <a 
                                 href="<?= $item['href'] ?>"
                                 class="nav-link <?= $isActive ? 'nav-link--active' : '' ?>"
@@ -346,32 +388,26 @@ $navItems = [
         width: 72px;
     }
     
-    /* Mobile (<768px): 70% overlay mode - dashboard visible */
+    /* Mobile (<768px): 70% overlay mode - HIDDEN by default, slide in on open */
     @media (max-width: 767px) {
+        /* Default: completely hidden off-screen */
         .sidebar-nav {
             transform: translateX(-100%);
             width: 70%;
             max-width: 280px;
             min-width: 240px;
-            box-shadow: 4px 0 30px rgba(0, 0, 0, 0.5);
+            box-shadow: none;
+            visibility: hidden;
         }
         
+        /* Open state: slide in, visible */
         .sidebar-nav--mobile-open {
             transform: translateX(0);
-        }
-        
-        /* Hide expanded state classes on mobile - always show icons+text */
-        .sidebar-nav--expanded {
-            transform: translateX(-100%);
-            width: 70%;
-            max-width: 280px;
-        }
-        
-        .sidebar-nav--mobile-open.sidebar-nav--expanded,
-        .sidebar-nav--mobile-open.sidebar-nav--collapsed {
-            transform: translateX(0);
-            width: 70%;
-            max-width: 280px;
+            visibility: visible;
+            box-shadow: 4px 0 30px rgba(0, 0, 0, 0.5);
+            background: rgba(15, 23, 42, 0.98);
+            backdrop-filter: blur(24px);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
         }
         
         /* Force show text on mobile sidebar */
@@ -385,11 +421,10 @@ $navItems = [
             padding: 0.5rem;
         }
         
-        /* Enhanced glassmorphism for mobile */
-        .sidebar-nav--mobile-open {
-            background: rgba(15, 23, 42, 0.98);
-            backdrop-filter: blur(24px);
-            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        /* Override any collapsed/expanded classes on mobile */
+        .sidebar-nav--collapsed,
+        .sidebar-nav--expanded {
+            /* These classes should not affect mobile */
         }
     }
     

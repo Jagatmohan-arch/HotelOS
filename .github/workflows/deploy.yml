@@ -48,6 +48,10 @@ jobs:
             --exclude-glob .idea/ \
             --exclude-glob node_modules/ \
             --exclude-glob .ftp-deploy-sync-state.json \
+            --exclude-glob .env \
+            --exclude-glob .env.* \
+            --exclude-glob public/uploads/ \
+            --exclude-glob logs/ \
             . .
           
           bye

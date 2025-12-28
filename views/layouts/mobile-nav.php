@@ -25,85 +25,19 @@ $mobileNavItems = [
 <!-- Mobile Bottom Navigation -->
 <nav 
     class="mobile-nav"
-    x-data="{ showQuickMenu: false }"
+    x-data="{ }"
 >
-    <!-- Quick Action Modal -->
-    <div 
-        x-show="showQuickMenu"
-        x-transition:enter="transition ease-out duration-200"
-        x-transition:enter-start="opacity-0"
-        x-transition:enter-end="opacity-100"
-        x-transition:leave="transition ease-in duration-150"
-        x-transition:leave-start="opacity-100"
-        x-transition:leave-end="opacity-0"
-        @click="showQuickMenu = false"
-        class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
-    ></div>
-    
-    <div 
-        x-show="showQuickMenu"
-        x-transition:enter="transition ease-out duration-300"
-        x-transition:enter-start="opacity-0 translate-y-8 scale-95"
-        x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-        x-transition:leave="transition ease-in duration-200"
-        x-transition:leave-start="opacity-100 translate-y-0 scale-100"
-        x-transition:leave-end="opacity-0 translate-y-8 scale-95"
-        class="fixed bottom-20 left-4 right-4 z-50 bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl overflow-hidden"
-    >
-        <div class="p-4 border-b border-slate-700">
-            <h3 class="text-sm font-semibold text-white">Quick Actions</h3>
-        </div>
-        <div class="grid grid-cols-3 gap-1 p-2">
-            <a href="/bookings/create" class="quick-action-btn">
-                <div class="quick-action-icon bg-emerald-500/20 text-emerald-400">
-                    <i data-lucide="calendar-plus" class="w-5 h-5"></i>
-                </div>
-                <span class="text-xs">New Booking</span>
-            </a>
-            <button @click="showQuickMenu = false; $dispatch('open-quick-checkin')" class="quick-action-btn">
-                <div class="quick-action-icon bg-cyan-500/20 text-cyan-400">
-                    <i data-lucide="log-in" class="w-5 h-5"></i>
-                </div>
-                <span class="text-xs">Check-in</span>
-            </button>
-            <a href="/bookings" class="quick-action-btn">
-                <div class="quick-action-icon bg-orange-500/20 text-orange-400">
-                    <i data-lucide="log-out" class="w-5 h-5"></i>
-                </div>
-                <span class="text-xs">Check-out</span>
-            </a>
-            <a href="/rooms" class="quick-action-btn">
-                <div class="quick-action-icon bg-purple-500/20 text-purple-400">
-                    <i data-lucide="bed-double" class="w-5 h-5"></i>
-                </div>
-                <span class="text-xs">Manage Rooms</span>
-            </a>
-            <a href="/housekeeping" class="quick-action-btn">
-                <div class="quick-action-icon bg-blue-500/20 text-blue-400">
-                    <i data-lucide="sparkles" class="w-5 h-5"></i>
-                </div>
-                <span class="text-xs">Housekeeping</span>
-            </a>
-            <a href="/pos" class="quick-action-btn">
-                <div class="quick-action-icon bg-yellow-500/20 text-yellow-400">
-                    <i data-lucide="indian-rupee" class="w-5 h-5"></i>
-                </div>
-                <span class="text-xs">POS</span>
-            </a>
-        </div>
-    </div>
-
     <!-- Navigation Bar -->
     <div class="mobile-nav-bar">
         <?php foreach ($mobileNavItems as $item): ?>
             <?php if (!empty($item['isAction'])): ?>
-                <!-- Center FAB Button -->
+                <!-- Center FAB Button (Direct Quick Check-in) -->
                 <button 
-                    @click="showQuickMenu = !showQuickMenu"
-                    class="mobile-nav-fab"
-                    :class="showQuickMenu ? 'bg-slate-600' : 'bg-gradient-to-r from-cyan-500 to-cyan-400'"
+                    @click="$dispatch('open-quick-checkin')"
+                    class="mobile-nav-fab bg-gradient-to-r from-emerald-500 to-emerald-400"
+                    title="Quick Check-in"
                 >
-                    <i :data-lucide="showQuickMenu ? 'x' : 'plus'" class="w-6 h-6 text-white"></i>
+                    <i data-lucide="log-in" class="w-6 h-6 text-white"></i>
                 </button>
             <?php elseif (!empty($item['isMenu'])): ?>
                 <!-- Menu Toggle (opens sidebar) -->
@@ -133,7 +67,7 @@ $mobileNavItems = [
         display: none;
     }
     
-    @media (max-width: 1023px) {
+    @media (max-width: 767px) {
         .mobile-nav {
             display: block;
         }
@@ -152,7 +86,7 @@ $mobileNavItems = [
         align-items: center;
         justify-content: space-around;
         padding: 0 0.5rem;
-        z-index: 40;
+        z-index: 60;
         padding-bottom: env(safe-area-inset-bottom);
     }
     
@@ -225,7 +159,7 @@ $mobileNavItems = [
     }
     
     /* Add padding to main content when mobile nav is visible */
-    @media (max-width: 1023px) {
+    @media (max-width: 767px) {
         .main-content {
             padding-bottom: calc(64px + env(safe-area-inset-bottom) + 1rem);
         }

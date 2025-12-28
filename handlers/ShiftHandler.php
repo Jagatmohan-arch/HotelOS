@@ -1,0 +1,258 @@
+<?php
+
+declare(strict_types=1);
+
+namespace HotelOS\Handlers;
+
+use HotelOS\Core\Database;
+use HotelOS\Core\TenantContext;
+
+class ShiftHandler
+{
+    private Database $db;
+
+    public function __construct()
+    {
+        $this->db = Database::getInstance();
+    }
+
+    /**
+     * Get the current OPEN shift for a user
+     */
+    public function getCurrentShift(int $userId): ?array
+    {
+        return $this->db->queryOne(
+            "SELECT * FROM shifts 
+             WHERE user_id = :user_id 
+             AND status = 'OPEN' 
+             AND tenant_id = :tenant_id
+             LIMIT 1",
+            [
+                'user_id' => $userId, 
+                'tenant_id' => TenantContext::getId()
+            ]
+        );
+    }
+
+    /**
+     * Start a new shift
+     */
+    public function startShift(int $userId, float $openingCash): array
+    {
+        // 1. Check if already open
+        if ($this->getCurrentShift($userId)) {
+            return ['success' => false, 'message' => 'You already have an active shift.'];
+        }
+
+        $tenantId = TenantContext::getId();
+
+        // 2. Create Shift
+        $id = $this->db->insert(
+            "INSERT INTO shifts (tenant_id, user_id, opening_cash, shift_start_at, status)
+             VALUES (:tenant_id, :user_id, :opening_cash, NOW(), 'OPEN')",
+            [
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'opening_cash' => $openingCash
+            ]
+        );
+
+        return ['success' => true, 'shift_id' => $id, 'message' => 'Shift started successfully.'];
+    }
+
+    /**
+     * Calculate expected cash for the current shift
+     * Logic: Opening Cash + Total Cash Transactions + Ledger Additions - Ledger Expenses
+     */
+    public function getExpectedCash(int $userId, int $shiftId, string $startTime): float
+    {
+        $tenantId = TenantContext::getId();
+
+        // Get opening cash
+        $shift = $this->db->queryOne(
+            "SELECT opening_cash FROM shifts WHERE id = :id",
+            ['id' => $shiftId]
+        );
+        $opening = (float)($shift['opening_cash'] ?? 0);
+
+        // Get all CASH transactions collected by this user since shift start
+        $txns = $this->db->queryOne(
+            "SELECT 
+                SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END) as total_in,
+                SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END) as total_out
+             FROM transactions 
+             WHERE tenant_id = :tenant_id 
+             AND collected_by = :user_id 
+             AND payment_mode = 'cash'
+             AND collected_at >= :start_time",
+            [
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'start_time' => $startTime
+            ]
+        );
+
+        $bookingCash = ((float)$txns['total_in']) - ((float)$txns['total_out']);
+        
+        // Phase F2: Include Ledger Entries
+        $ledger = $this->db->queryOne(
+            "SELECT 
+                SUM(CASE WHEN type = 'addition' THEN amount ELSE 0 END) as additions,
+                SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expenses
+             FROM cash_ledger
+             WHERE shift_id = :shift_id",
+            ['shift_id' => $shiftId]
+        );
+        
+        $ledgerNet = ((float)$ledger['additions']) - ((float)$ledger['expenses']);
+        
+        return $opening + $bookingCash + $ledgerNet;
+    }
+
+    /**
+     * Add a petty cash entry (Phase F2)
+     */
+    public function addLedgerEntry(int $userId, int $shiftId, string $type, float $amount, string $category, string $description): bool
+    {
+        $tenantId = TenantContext::getId();
+        
+        // Verify shift belongs to user and is open
+        $shift = $this->db->queryOne(
+            "SELECT id FROM shifts WHERE id = :id AND user_id = :uid AND status = 'OPEN'",
+            ['id' => $shiftId, 'uid' => $userId]
+        );
+        
+        if (!$shift) return false;
+        
+        return (bool) $this->db->insert(
+            "INSERT INTO cash_ledger (tenant_id, shift_id, user_id, type, amount, category, description, created_at)
+             VALUES (:tid, :sid, :uid, :type, :amount, :cat, :desc, NOW())",
+            [
+                'tid' => $tenantId,
+                'sid' => $shiftId,
+                'uid' => $userId,
+                'type' => $type,
+                'amount' => $amount,
+                'cat' => $category,
+                'desc' => $description
+            ]
+        );
+    }
+
+    /**
+     * Get ledger entries for a shift
+     */
+    public function getShiftLedger(int $shiftId): array
+    {
+        return $this->db->query(
+            "SELECT * FROM cash_ledger WHERE shift_id = :sid ORDER BY created_at DESC",
+            ['sid' => $shiftId]
+        );
+    }
+
+    /**
+     * End a shift
+     */
+    public function endShift(int $shiftId, int $userId, float $closingCash, ?int $handoverTo, ?string $notes): array
+    {
+        $shift = $this->db->queryOne(
+            "SELECT * FROM shifts WHERE id = :id AND user_id = :user_id AND status = 'OPEN'",
+            ['id' => $shiftId, 'user_id' => $userId]
+        );
+
+        if (!$shift) {
+            return ['success' => false, 'message' => 'Active shift not found.'];
+        }
+
+        // Calculate expected
+        $expected = $this->getExpectedCash($userId, $shiftId, $shift['shift_start_at']);
+        $variance = $closingCash - $expected;
+
+        // Close Shift
+        $this->db->execute(
+            "UPDATE shifts SET 
+                closing_cash = :closing,
+                system_expected_cash = :expected,
+                variance_amount = :variance,
+                handover_to_user_id = :handover,
+                notes = :notes,
+                shift_end_at = NOW(),
+                status = 'CLOSED'
+             WHERE id = :id",
+            [
+                'closing' => $closingCash,
+                'expected' => $expected,
+                'variance' => $variance,
+                'handover' => $handoverTo,
+                'notes' => $notes,
+                'id' => $shiftId
+            ]
+        );
+
+        return ['success' => true, 'message' => 'Shift closed successfully.'];
+    }
+
+    /**
+     * Get recent shifts for history
+     */
+    public function getRecentShifts(int $limit = 5): array
+    {
+        return $this->db->query(
+            "SELECT s.*, 
+                    u1.first_name as user_name,
+                    u2.first_name as handover_name
+             FROM shifts s
+             JOIN users u1 ON s.user_id = u1.id
+             LEFT JOIN users u2 ON s.handover_to_user_id = u2.id
+             WHERE s.tenant_id = :tenant_id
+             ORDER BY s.created_at DESC
+             LIMIT :limit",
+            [
+                'tenant_id' => TenantContext::getId(),
+                'limit' => $limit
+            ]
+        );
+    }
+    
+    /**
+     * Phase F3: Verify a shift (Manager Action)
+     */
+    public function verifyShift(int $shiftId, int $managerId, string $note = ''): bool
+    {
+        $tenantId = TenantContext::getId();
+        
+        return (bool) $this->db->execute(
+            "UPDATE shifts SET 
+                verified_by = :mid, 
+                verified_at = NOW(), 
+                manager_note = :note 
+             WHERE id = :sid AND tenant_id = :tid",
+            [
+                'mid' => $managerId,
+                'note' => $note,
+                'sid' => $shiftId,
+                'tid' => $tenantId
+            ]
+        );
+    }
+    
+    /**
+     * Phase F3: Get all closed shifts for Audit
+     */
+    public function getAllClosedShifts(int $limit = 50, int $offset = 0): array
+    {
+        $tenantId = TenantContext::getId();
+        return $this->db->query(
+            "SELECT s.*, 
+                    u.first_name, u.last_name,
+                    v.first_name as verifier_name
+             FROM shifts s
+             JOIN users u ON s.user_id = u.id
+             LEFT JOIN users v ON s.verified_by = v.id
+             WHERE s.tenant_id = :tid AND s.status = 'CLOSED'
+             ORDER BY s.shift_end_at DESC
+             LIMIT :limit OFFSET :offset",
+            ['tid' => $tenantId, 'limit' => $limit, 'offset' => $offset]
+        );
+    }
+}

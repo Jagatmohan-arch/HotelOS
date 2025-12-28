@@ -25,10 +25,10 @@ function getDB(): ?PDO
     // DATABASE CREDENTIALS
     // ============================================
     $config = [
-        'host'     => 'localhost',
-        'dbname'   => 'uplfveim_hotelos',
-        'username' => 'uplfveim_deploy',
-        'password' => 'jm@HS10$$', // Database password
+        'host'     => getenv('DB_HOST'),
+        'dbname'   => getenv('DB_NAME'),
+        'username' => getenv('DB_USER'),
+        'password' => getenv('DB_PASS'), // Secured
         'charset'  => 'utf8mb4',
     ];
     

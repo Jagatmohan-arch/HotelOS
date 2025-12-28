@@ -16,10 +16,14 @@ use HotelOS\Core\TenantContext;
 class BookingHandler
 {
     private Database $db;
+    private SettingsHandler $settings;
+    private Auth $auth;
     
     public function __construct()
     {
         $this->db = Database::getInstance();
+        $this->settings = new SettingsHandler();
+        $this->auth = Auth::getInstance();
     }
     
     /**
@@ -176,7 +180,7 @@ class BookingHandler
                 enforceTenant: false
             );
             
-            $bookingId = $this->db->lastInsertId();
+            $bookingId = (int)$this->db->lastInsertId();
             
             // Update room status if room assigned
             if (!empty($data['room_id'])) {
@@ -185,6 +189,9 @@ class BookingHandler
                     ['id' => $data['room_id']]
                 );
             }
+            
+            // Audit Log
+            $this->auth->logAudit('create', 'booking', $bookingId);
             
             return [
                 'success' => true,
@@ -247,6 +254,9 @@ class BookingHandler
             $params
         );
         
+        // Audit Log
+        $this->auth->logAudit('check_in', 'booking', $id);
+        
         return ['success' => true];
     }
     
@@ -271,20 +281,23 @@ class BookingHandler
             return ['success' => false, 'error' => 'Guest is not checked in'];
         }
         
-        // Calculate late checkout fee if checkout is after 12 PM
+        // Calculate late checkout fee based on settings
         $now = new \DateTime();
-        $checkoutTime = (int)$now->format('H');
+        $checkoutHour = (int)$now->format('H');
         $calculatedLateFee = 0;
         
         if ($lateCheckoutFee > 0) {
-            // Use manually specified late fee
+            // Manual override
             $calculatedLateFee = $lateCheckoutFee;
-        } elseif ($checkoutTime >= 14) {
-            // Auto-calculate: After 2 PM = 50% of room rate
-            $calculatedLateFee = (float)$booking['rate_per_night'] * 0.5;
-        } elseif ($checkoutTime >= 12) {
-            // After 12 PM but before 2 PM = 25% of room rate
-            $calculatedLateFee = (float)$booking['rate_per_night'] * 0.25;
+        } else {
+            // Get settings (Defaults: 14:00 check out triggers 50%)
+            $settings = $this->settings->getSettings();
+            $lateCheckoutTime = (int)($settings['late_checkout_threshold'] ?? 14); 
+            $lateCheckoutPct = (float)($settings['late_checkout_percent'] ?? 50);
+            
+            if ($checkoutHour >= $lateCheckoutTime) {
+                $calculatedLateFee = (float)$booking['rate_per_night'] * ($lateCheckoutPct / 100);
+            }
         }
         
         // Use passed extra charges or existing
@@ -299,16 +312,20 @@ class BookingHandler
             );
         }
         
-        // Calculate final amounts with GST
+        // Calculate final amounts with GST using settings
         $taxableAmount = (float)$booking['room_total'] + $totalExtraCharges - (float)($booking['discount_amount'] ?? 0);
         
-        // Get GST rate from room type
-        $roomType = $this->db->queryOne(
-            "SELECT gst_rate FROM room_types WHERE id = :id",
-            ['id' => $booking['room_type_id']]
-        );
+        // Dynamic GST Calculation
+        $appConfig = require __DIR__ . '/../config/app.php';
+        $gstThreshold = (float)($appConfig['gst']['threshold'] ?? 7500.00);
+        $lowRate = (float)($appConfig['gst']['low_slab_rate'] ?? 12.00);
+        $highRate = (float)($appConfig['gst']['high_slab_rate'] ?? 18.00);
         
-        $gstRate = (float)($roomType['gst_rate'] ?? 12);
+        // Determine rate based on average nightly rate (standard rule) or total?
+        // Standard Service Tax rule: Slab based on Declared Tariff (Base Rate)
+        $baseRate = (float)$booking['rate_per_night'];
+        $gstRate = ($baseRate < $gstThreshold) ? $lowRate : $highRate;
+        
         $halfGst = $gstRate / 2;
         
         // CGST + SGST (same state) or IGST (different state)
@@ -358,6 +375,9 @@ class BookingHandler
         // Update guest stats
         $guestHandler = new GuestHandler();
         $guestHandler->updateStayStats((int)$booking['guest_id'], $grandTotal);
+        
+        // Audit Log
+        $this->auth->logAudit('check_out', 'booking', $id);
         
         return [
             'success' => true,
@@ -529,6 +549,9 @@ class BookingHandler
                 ['id' => $booking['room_id']]
             );
         }
+        
+        // Audit Log
+        $this->auth->logAudit('cancel', 'booking', $id);
         
         return ['success' => true];
     }

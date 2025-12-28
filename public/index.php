@@ -10,6 +10,41 @@ declare(strict_types=1);
 
 // Error handling - Environment-based debug mode
 error_reporting(E_ALL);
+
+// Simple .env Loader for Shared Hosting
+if (!function_exists('loadEnv')) {
+    function loadEnv($path)
+    {
+        if (!file_exists($path)) return;
+        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        foreach ($lines as $line) {
+            if (strpos(trim($line), '#') === 0) continue;
+            list($name, $value) = explode('=', $line, 2) + [NULL, NULL];
+            if ($name !== NULL && $value !== NULL) {
+                $name = trim($name);
+                $value = trim($value);
+                if (!getenv($name)) {
+                    putenv("$name=$value");
+                    $_ENV[$name] = $value;
+                }
+            }
+        }
+    }
+}
+
+// Load .env from root if exists
+if (defined('BASE_PATH')) {
+    loadEnv(BASE_PATH . '/.env');
+} else {
+    // Try to guess root
+    $guessRoot = dirname(__DIR__); 
+    // If running from public/index.php, root is one up. 
+    // Be careful with include paths.
+    // We will let the define('BASE_PATH') block below handle the path definition first,
+    // then call loadEnv.
+}
+
+
 $isDebug = (bool)(getenv('APP_DEBUG') ?: false);
 ini_set('display_errors', $isDebug ? '1' : '0');
 ini_set('log_errors', '1');
@@ -53,6 +88,9 @@ if (!defined('CONFIG_PATH')) {
     define('LOGS_PATH', BASE_PATH . '/logs');
 }
 
+// Now load .env
+loadEnv(BASE_PATH . '/.env');
+
 // Autoload core classes
 spl_autoload_register(function (string $class): void {
     // HotelOS\Core namespace
@@ -90,6 +128,9 @@ date_default_timezone_set($appConfig['timezone']);
 
 // Initialize error logging
 ini_set('error_log', LOGS_PATH . '/php_errors.log');
+
+// Phase C: Enable Database Sessions
+define('USE_DB_SESSIONS', true);
 
 use HotelOS\Core\Auth;
 use HotelOS\Core\Database;
@@ -385,6 +426,16 @@ try {
             break;
             
         case '/logout':
+            // Phase F1: Check for open shift
+            $shiftHandler = new \HotelOS\Handlers\ShiftHandler();
+            $openShift = $shiftHandler->getCurrentShift($auth->user()['id']); // Needs active user
+            
+            if ($openShift) {
+                // Block logout, redirect to shift page
+                header('Location: /shifts?error=' . urlencode('You must close your active shift before logging out.'));
+                exit;
+            }
+            
             $auth->logout();
             header('Location: /?logged_out=1');
             exit;
@@ -497,6 +548,50 @@ try {
             renderSubscriptionPage($auth);
             break;
             
+        // ========== Security / Sessions (Phase D) ==========
+        case '/admin/security/sessions':
+            renderSessionsPage($auth);
+            break;
+
+        case '/admin/security/audit':
+            renderAuditPage($auth);
+            break;
+            
+        case '/session/kill':
+            if ($requestMethod === 'POST') handleSessionKill($auth);
+            else header('Location: /admin/security/sessions');
+            break;
+            
+        // ========== Shifts (Phase F1) ==========
+        case '/shifts':
+            renderShiftsPage($auth);
+            break;
+        case '/shifts/start':
+            if ($requestMethod === 'POST') handleShiftStart($auth);
+            break;
+        case '/shifts/end':
+            if ($requestMethod === 'POST') handleShiftEnd($auth);
+            break;
+        case '/shifts/ledger/add':
+            if ($requestMethod === 'POST') handleLedgerAdd($auth);
+            break;
+            
+        // ========== Admin Shift Audit (Phase F3) ==========
+        case '/admin/shifts':
+            renderAdminShiftsPage($auth);
+            break;
+        case '/admin/shifts/verify':
+            if ($requestMethod === 'POST') handleShiftVerify($auth);
+            break;
+            
+        case '/admin/shifts/verify':
+            if ($requestMethod === 'POST') handleShiftVerify($auth);
+            break;
+            
+        case '/admin/reports/daily':
+            renderDailyReportPage($auth);
+            break;
+            
         default:
             http_response_code(404);
             renderErrorPage(404, 'Page Not Found');
@@ -603,6 +698,37 @@ function renderLoginPage(Auth $auth): void
     include VIEWS_PATH . '/layouts/base.php';
 }
 
+function handleSessionKill(Auth $auth): void
+{
+    $input = $_POST;
+    
+    // Verify CSRF
+    if (!hash_equals($_SESSION['csrf_token'] ?? '', $input['csrf_token'] ?? '')) {
+        http_response_code(403);
+        die('Invalid CSRF token');
+    }
+    
+    // Verify Owner Role
+    if ($auth->role() !== \HotelOS\Core\Auth::ROLE_OWNER) {
+        http_response_code(403);
+        die('Access Denied');
+    }
+    
+    $sessionId = $input['session_id'] ?? '';
+    
+    if ($sessionId) {
+        $handler = new \HotelOS\Core\SessionHandler();
+        $success = $handler->killSession($sessionId, $auth->user()['tenant_id']);
+        
+        if ($success) {
+           // Log this action
+           $auth->logAudit('kill_session', 'session', 0, ['session_id' => $sessionId]);
+        }
+    }
+    
+    header('Location: /admin/security/sessions');
+    exit;
+}
 function handleLoginForm(Auth $auth): void
 {
     // Get form data

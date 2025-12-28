@@ -10,16 +10,16 @@
 
 declare(strict_types=1);
 
-// Database credentials - Uses environment variables with production fallbacks
-// For local development, set environment variables or use these defaults
+// Database credentials
+// Production: .env required for security
 
 return [
     'driver'    => 'mysql',
-    'host'      => getenv('DB_HOST') ?: 'localhost',
+    'host'      => getenv('DB_HOST'), // Fails if .env missing
     'port'      => getenv('DB_PORT') ?: '3306',
-    'database'  => getenv('DB_NAME') ?: 'uplfveim_hotelos',
-    'username'  => getenv('DB_USER') ?: 'uplfveim_deploy',
-    'password'  => getenv('DB_PASS') ?: 'jm@HS10$$',
+    'database'  => getenv('DB_NAME'),
+    'username'  => getenv('DB_USER'),
+    'password'  => getenv('DB_PASS'),
     'charset'   => 'utf8mb4',
     'collation' => 'utf8mb4_unicode_ci',
     

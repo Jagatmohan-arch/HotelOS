@@ -24,12 +24,26 @@ class DashboardHandler
     
     /**
      * Get all dashboard statistics
+     * Optimized to reduce DB calls (Phase E-Lite)
      */
     public function getStats(): array
     {
+        // Fetch room stats in one query
+        $roomStats = $this->db->queryOne(
+            "SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'occupied' THEN 1 ELSE 0 END) as occupied
+             FROM rooms 
+             WHERE is_active = 1"
+        );
+
+        $total = (int) ($roomStats['total'] ?? 0);
+        $occupied = (int) ($roomStats['occupied'] ?? 0);
+        $occupancy = $total > 0 ? round(($occupied / $total) * 100, 1) : 0.0;
+
         return [
-            'totalRooms' => $this->getTotalRooms(),
-            'occupancy' => $this->getOccupancyPercentage(),
+            'totalRooms' => $total,
+            'occupancy' => $occupancy,
             'todayArrivals' => $this->getTodayArrivals(),
             'todayRevenue' => $this->getTodayRevenue(),
         ];
@@ -51,17 +65,8 @@ class DashboardHandler
      */
     public function getOccupancyPercentage(): float
     {
-        $total = $this->getTotalRooms();
-        if ($total === 0) {
-            return 0.0;
-        }
-        
-        $occupied = $this->db->queryOne(
-            "SELECT COUNT(*) as count FROM rooms WHERE status = 'occupied' AND is_active = 1"
-        );
-        
-        $occupiedCount = (int) ($occupied['count'] ?? 0);
-        return round(($occupiedCount / $total) * 100, 1);
+        $stats = $this->getStats();
+        return $stats['occupancy'];
     }
     
     /**

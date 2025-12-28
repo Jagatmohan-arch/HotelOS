@@ -306,8 +306,7 @@ $breadcrumbs = $breadcrumbs ?? [];
             
             .glass-card .flex.flex-wrap.gap-2 .btn {
                 justify-content: center;
-                font-size: 0.75rem;
-                padding: 0.5rem;
+                /* Restored natural size for touch targets */
             }
             
             /* Page header mobile */
@@ -574,10 +573,10 @@ $breadcrumbs = $breadcrumbs ?? [];
         <div class="main-wrapper">
             <!-- Header -->
             <header class="app-header">
-                <!-- Mobile Menu Toggle -->
+                <!-- Mobile Menu Toggle (Tablet only, hidden on mobile & desktop) -->
                 <button 
                     @click="$dispatch('toggle-mobile-sidebar')"
-                    class="lg:hidden mr-4 p-2 -ml-2 rounded-lg hover:bg-slate-700/50 text-slate-400"
+                    class="hidden md:block lg:hidden mr-4 p-2 -ml-2 rounded-lg hover:bg-slate-700/50 text-slate-400"
                 >
                     <i data-lucide="menu" class="w-5 h-5"></i>
                 </button>

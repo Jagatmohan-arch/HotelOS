@@ -293,6 +293,7 @@ CREATE TABLE `sessions` (
     
     PRIMARY KEY (`id`),
     INDEX `idx_session_user` (`user_id`),
+    INDEX `idx_session_tenant` (`tenant_id`),
     INDEX `idx_session_activity` (`last_activity`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -321,10 +322,86 @@ CREATE TABLE `audit_logs` (
     
     PRIMARY KEY (`id`),
     INDEX `idx_audit_tenant` (`tenant_id`),
-    INDEX `idx_audit_user` (`user_id`),
-    INDEX `idx_audit_entity` (`entity_type`, `entity_id`),
     INDEX `idx_audit_action` (`action`),
     INDEX `idx_audit_date` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================
+-- TABLE: shifts (Staff Shift & Handover)
+-- Phase F1: Staff Accountability
+-- ============================================
+DROP TABLE IF EXISTS `shifts`;
+CREATE TABLE `shifts` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tenant_id` INT UNSIGNED NOT NULL,
+    `user_id` INT UNSIGNED NOT NULL COMMENT 'Staff member owning this shift',
+    
+    -- Timings
+    `shift_start_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `shift_end_at` TIMESTAMP NULL,
+    
+    -- Cash Handling (The Core Value)
+    `opening_cash` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    `closing_cash` DECIMAL(10,2) NULL,
+    `system_expected_cash` DECIMAL(10,2) NULL COMMENT 'Snapshot of theoretical cash',
+    `variance_amount` DECIMAL(10,2) NULL COMMENT 'closing - expected',
+    
+    -- Handover
+    `handover_to_user_id` INT UNSIGNED NULL COMMENT 'Next staff member',
+    `notes` TEXT NULL COMMENT 'Shift summary / handover notes',
+    
+    -- Verification (Phase F3)
+    `verified_by` INT UNSIGNED NULL,
+    `verified_at` TIMESTAMP NULL,
+    `manager_note` VARCHAR(255) NULL,
+    
+    -- Status
+    `status` ENUM('OPEN', 'CLOSED') NOT NULL DEFAULT 'OPEN',
+    
+    -- Meta
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    PRIMARY KEY (`id`),
+    INDEX `idx_shifts_tenant` (`tenant_id`),
+    INDEX `idx_shifts_user` (`user_id`),
+    INDEX `idx_shifts_status` (`status`),
+    INDEX `idx_shifts_date` (`shift_start_at`),
+    
+    CONSTRAINT `fk_shifts_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_shifts_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_shifts_handover` FOREIGN KEY (`handover_to_user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL,
+    CONSTRAINT `fk_shifts_verifier` FOREIGN KEY (`verified_by`) REFERENCES `users`(`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================
+-- TABLE: cash_ledger (Petty Cash Tracking)
+-- Phase F2: Cash Counter
+-- ============================================
+DROP TABLE IF EXISTS `cash_ledger`;
+CREATE TABLE `cash_ledger` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tenant_id` INT UNSIGNED NOT NULL,
+    `shift_id` INT UNSIGNED NOT NULL COMMENT 'Link to the active shift',
+    `user_id` INT UNSIGNED NOT NULL COMMENT 'Staff who made the entry',
+    
+    -- Transaction
+    `type` ENUM('expense', 'addition') NOT NULL COMMENT 'Expense = money out, Addition = money in (not from bookings)',
+    `amount` DECIMAL(10,2) NOT NULL,
+    `category` VARCHAR(50) NOT NULL COMMENT 'e.g., Petty Cash, Snacks, Taxi, Maintenance',
+    `description` VARCHAR(255) NULL,
+    
+    -- Meta
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    PRIMARY KEY (`id`),
+    INDEX `idx_ledger_tenant` (`tenant_id`),
+    INDEX `idx_ledger_shift` (`shift_id`),
+    INDEX `idx_ledger_date` (`created_at`),
+    
+    CONSTRAINT `fk_ledger_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_ledger_shift` FOREIGN KEY (`shift_id`) REFERENCES `shifts`(`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_ledger_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================

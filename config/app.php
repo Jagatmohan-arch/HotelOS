@@ -16,7 +16,7 @@ return [
     'url'       => getenv('APP_URL') ?: 'https://hotelos.needkit.in',
     
     // Security
-    'key'       => getenv('APP_KEY') ?: 'base64:CHANGE_THIS_TO_A_RANDOM_32_CHAR_STRING',
+    'key'       => getenv('APP_KEY'), // Production: Set in .env
     
     // Session Configuration
     'session'   => [
