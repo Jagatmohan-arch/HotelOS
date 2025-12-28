@@ -6,7 +6,7 @@ use HotelOS\Core\Auth;
 // Shift Functions (Phase F)
 // ============================================
 
-function renderShiftsPage(Auth $auth): void
+function renderShiftsPage(\HotelOS\Core\Auth $auth): void
 {
     $user = $auth->user();
     $csrfToken = $auth->csrfToken();
@@ -36,7 +36,7 @@ function renderShiftsPage(Auth $auth): void
     include VIEWS_PATH . '/layouts/app.php';
 }
 
-function handleShiftStart(Auth $auth): void
+function handleShiftStart(\HotelOS\Core\Auth $auth): void
 {
     $handler = new \HotelOS\Handlers\ShiftHandler();
     $openingCash = (float)($_POST['opening_cash'] ?? 0);
@@ -53,7 +53,7 @@ function handleShiftStart(Auth $auth): void
     exit;
 }
 
-function handleShiftEnd(Auth $auth): void
+function handleShiftEnd(\HotelOS\Core\Auth $auth): void
 {
     $handler = new \HotelOS\Handlers\ShiftHandler();
     $user = $auth->user();
@@ -86,7 +86,7 @@ function handleShiftEnd(Auth $auth): void
     exit;
 }
 
-function handleLedgerAdd(Auth $auth): void
+function handleLedgerAdd(\HotelOS\Core\Auth $auth): void
 {
     $handler = new \HotelOS\Handlers\ShiftHandler();
     $user = $auth->user();
@@ -121,7 +121,7 @@ function handleLedgerAdd(Auth $auth): void
     exit;
 }
 
-function renderAdminShiftsPage(Auth $auth): void
+function renderAdminShiftsPage(\HotelOS\Core\Auth $auth): void
 {
     $csrfToken = $auth->csrfToken();
     $handler = new \HotelOS\Handlers\ShiftHandler();
@@ -143,7 +143,7 @@ function renderAdminShiftsPage(Auth $auth): void
     include VIEWS_PATH . '/layouts/app.php';
 }
 
-function handleShiftVerify(Auth $auth): void
+function handleShiftVerify(\HotelOS\Core\Auth $auth): void
 {
     $handler = new \HotelOS\Handlers\ShiftHandler();
     // Assuming manager role check is done in routes or middleware, but let's be safe
