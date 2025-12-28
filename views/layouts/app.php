@@ -254,6 +254,73 @@ $breadcrumbs = $breadcrumbs ?? [];
             margin-top: 0.25rem;
         }
         
+        /* Mobile Dashboard: Calm Flow Design */
+        @media (max-width: 767px) {
+            /* Stats as horizontal scroll */
+            .grid.grid-cols-2.lg\\:grid-cols-4 {
+                display: flex;
+                overflow-x: auto;
+                scroll-snap-type: x mandatory;
+                gap: 0.75rem;
+                padding-bottom: 0.5rem;
+                margin: 0 -1rem;
+                padding-left: 1rem;
+                padding-right: 1rem;
+                scrollbar-width: none;
+            }
+            
+            .grid.grid-cols-2.lg\\:grid-cols-4::-webkit-scrollbar {
+                display: none;
+            }
+            
+            .grid.grid-cols-2.lg\\:grid-cols-4 > .stats-card {
+                flex: 0 0 70%;
+                min-width: 200px;
+                scroll-snap-align: start;
+            }
+            
+            /* Smaller stats on mobile */
+            .stats-value {
+                font-size: 1.5rem;
+            }
+            
+            .stats-card {
+                padding: 1rem;
+            }
+            
+            /* Single column for all grids */
+            .grid.lg\\:grid-cols-3 {
+                grid-template-columns: 1fr !important;
+            }
+            
+            .lg\\:col-span-2 {
+                grid-column: span 1 !important;
+            }
+            
+            /* Quick actions: 2 per row */
+            .glass-card .flex.flex-wrap.gap-2 {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.5rem;
+            }
+            
+            .glass-card .flex.flex-wrap.gap-2 .btn {
+                justify-content: center;
+                font-size: 0.75rem;
+                padding: 0.5rem;
+            }
+            
+            /* Page header mobile */
+            .dashboard-page .flex.flex-col.md\\:flex-row {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .dashboard-page h1 {
+                font-size: 1.5rem;
+            }
+        }
+        
         /* Button Styles */
         .btn {
             display: inline-flex;
