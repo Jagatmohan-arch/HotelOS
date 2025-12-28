@@ -60,12 +60,12 @@ $mobileNavItems = [
                 </div>
                 <span class="text-xs">New Booking</span>
             </a>
-            <a href="/bookings" class="quick-action-btn">
+            <button @click="showQuickMenu = false; $dispatch('open-quick-checkin')" class="quick-action-btn">
                 <div class="quick-action-icon bg-cyan-500/20 text-cyan-400">
                     <i data-lucide="log-in" class="w-5 h-5"></i>
                 </div>
                 <span class="text-xs">Check-in</span>
-            </a>
+            </button>
             <a href="/bookings" class="quick-action-btn">
                 <div class="quick-action-icon bg-orange-500/20 text-orange-400">
                     <i data-lucide="log-out" class="w-5 h-5"></i>

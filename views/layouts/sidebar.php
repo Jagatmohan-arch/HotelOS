@@ -341,21 +341,50 @@ $navItems = [
         width: 72px;
     }
     
-    /* Mobile (<768px): Full overlay mode */
+    /* Mobile (<768px): 70% overlay mode - dashboard visible */
     @media (max-width: 767px) {
         .sidebar-nav {
             transform: translateX(-100%);
-            width: 280px;
+            width: 70%;
+            max-width: 280px;
+            min-width: 240px;
+            box-shadow: 4px 0 30px rgba(0, 0, 0, 0.5);
         }
+        
         .sidebar-nav--mobile-open {
             transform: translateX(0);
         }
-        /* Hide expanded state classes on mobile */
+        
+        /* Hide expanded state classes on mobile - always show icons+text */
         .sidebar-nav--expanded {
             transform: translateX(-100%);
+            width: 70%;
+            max-width: 280px;
         }
-        .sidebar-nav--mobile-open.sidebar-nav--expanded {
+        
+        .sidebar-nav--mobile-open.sidebar-nav--expanded,
+        .sidebar-nav--mobile-open.sidebar-nav--collapsed {
             transform: translateX(0);
+            width: 70%;
+            max-width: 280px;
+        }
+        
+        /* Force show text on mobile sidebar */
+        .sidebar-nav--mobile-open .nav-link-text {
+            display: block !important;
+            opacity: 1 !important;
+        }
+        
+        /* Sidebar content padding for mobile */
+        .sidebar-nav--mobile-open .sidebar-content {
+            padding: 0.5rem;
+        }
+        
+        /* Enhanced glassmorphism for mobile */
+        .sidebar-nav--mobile-open {
+            background: rgba(15, 23, 42, 0.98);
+            backdrop-filter: blur(24px);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
         }
     }
     
