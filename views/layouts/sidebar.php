@@ -59,6 +59,7 @@ $navItems = [
         'href' => '/pos',
     ],
     [
+        'route' => 'shifts',
         'label' => 'Shift Handover',
         'icon' => 'clock', // Lucide icon
         'href' => '/shifts',
