@@ -457,6 +457,42 @@ $breadcrumbs = $breadcrumbs ?? [];
         ::-webkit-scrollbar-thumb:hover {
             background: rgba(255, 255, 255, 0.2);
         }
+        
+        /* Quick Check-in FAB */
+        .quick-checkin-fab {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: white;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(34, 197, 94, 0.4);
+            z-index: 30;
+            transition: all 0.3s ease;
+        }
+        
+        .quick-checkin-fab:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 30px rgba(34, 197, 94, 0.5);
+        }
+        
+        .quick-checkin-fab:active {
+            transform: scale(0.95);
+        }
+        
+        /* Hide FAB on mobile (use bottom nav instead) */
+        @media (max-width: 1023px) {
+            .quick-checkin-fab {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body 
@@ -531,6 +567,18 @@ $breadcrumbs = $breadcrumbs ?? [];
         
         <!-- Mobile Navigation -->
         <?php include __DIR__ . '/mobile-nav.php'; ?>
+        
+        <!-- Quick Check-in Modal (Global) -->
+        <?php include __DIR__ . '/../bookings/quick-checkin.php'; ?>
+        
+        <!-- Quick Check-in FAB (Desktop) -->
+        <button 
+            @click="$dispatch('open-quick-checkin')"
+            class="quick-checkin-fab"
+            title="Quick Check-in"
+        >
+            <i data-lucide="log-in" class="w-6 h-6"></i>
+        </button>
     </div>
     
     <!-- Initialize Icons -->
