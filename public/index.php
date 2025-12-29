@@ -322,6 +322,38 @@ if (str_starts_with($requestUri, '/api/')) {
             exit;
         }
         
+        // GET /api/bookings/today (Consolidated for Mobile)
+        if ($requestUri === '/api/bookings/today' && $requestMethod === 'GET') {
+            requireApiAuth();
+            $handler = new \HotelOS\Handlers\BookingHandler();
+            
+            $arrivals = $handler->getTodayArrivals();
+            $inhouse = $handler->getInHouseGuests();
+            $departures = $handler->getTodayDepartures(); // Only for count
+            
+            // Combine arrivals and inhouse for the list (departures are subset of inhouse)
+            $all = array_merge($arrivals, $inhouse);
+            
+            // Format for UI
+            $bookings = array_map(function($b) {
+                $b['guest_name'] = trim(($b['first_name'] ?? '') . ' ' . ($b['last_name'] ?? ''));
+                // Ensure check_out_date is Y-m-d
+                if (isset($b['check_out_date'])) {
+                    $b['check_out_date'] = substr($b['check_out_date'], 0, 10);
+                }
+                return $b;
+            }, $all);
+            
+            echo json_encode([
+                'success' => true,
+                'bookings' => $bookings,
+                'arrivals_count' => count($arrivals),
+                'departures_count' => count($departures),
+                'inhouse_count' => count($inhouse)
+            ]);
+            exit;
+        }
+        
         // GET /api/bookings/today-arrivals
         if ($requestUri === '/api/bookings/today-arrivals' && $requestMethod === 'GET') {
             requireApiAuth();
@@ -370,6 +402,17 @@ if (str_starts_with($requestUri, '/api/')) {
             
             $extraCharges = (float)($data['extra_charges'] ?? 0);
             $lateCheckoutFee = (float)($data['late_checkout_fee'] ?? 0);
+            
+            // Process payment if amount provided
+            $amountPaid = (float)($data['amount_paid'] ?? 0);
+            if ($amountPaid > 0) {
+                // Determine payment method and reference
+                $paymentMethod = $data['payment_method'] ?? 'cash';
+                $reference = $data['reference'] ?? null;
+                
+                $invoiceHandler = new \HotelOS\Handlers\InvoiceHandler();
+                $invoiceHandler->recordPayment((int)$matches[1], $amountPaid, $paymentMethod, $reference);
+            }
             
             $handler = new \HotelOS\Handlers\BookingHandler();
             $result = $handler->checkOut((int)$matches[1], $extraCharges, $lateCheckoutFee);
@@ -878,6 +921,14 @@ try {
     
     // Dynamic routes (before switch)
     // Invoice: /bookings/{id}/invoice
+    // Checkout Page (Mobile Flow)
+    if (preg_match('#^/bookings/(\d+)/checkout$#', $requestUri, $matches)) {
+        requireAuth();
+        renderCheckoutPage($auth, (int)$matches[1]);
+        exit;
+    }
+
+    // Invoice Page
     if (preg_match('#^/bookings/(\d+)/invoice$#', $requestUri, $matches)) {
         if (!$auth->check()) { header('Location: /'); exit; }
         renderInvoicePage($auth, (int)$matches[1]);
@@ -1673,7 +1724,10 @@ function renderBookingsPage(Auth $auth): void
     ];
     
     ob_start();
+    // Desktop view (hidden on mobile)
     include VIEWS_PATH . '/bookings/index.php';
+    // Mobile view (hidden on desktop)
+    include VIEWS_PATH . '/bookings/mobile.php';
     $content = ob_get_clean();
     
     include VIEWS_PATH . '/layouts/app.php';
@@ -1773,6 +1827,41 @@ function renderInvoicePage(Auth $auth, int $bookingId): void
     
     // Render standalone (no layout)
     include VIEWS_PATH . '/bookings/invoice.php';
+}
+
+function renderCheckoutPage(Auth $auth, int $bookingId): void
+{
+    $handler = new \HotelOS\Handlers\InvoiceHandler();
+    $invoice = $handler->getInvoiceData($bookingId);
+    
+    if (!$invoice) {
+        http_response_code(404);
+        echo '<h1>Booking not found</h1>';
+        return;
+    }
+    
+    $bookingHandler = new \HotelOS\Handlers\BookingHandler();
+    $booking = $invoice['booking'];
+    
+    // Safety: If already checked out, redirect to invoice
+    if ($booking['status'] === 'checked_out') {
+        header("Location: /bookings/{$bookingId}/invoice");
+        exit;
+    }
+    
+    $user = $auth->user();
+    $title = 'Checkout - ' . $booking['guest_name'];
+    $currentRoute = 'bookings';
+    $breadcrumbs = [
+        ['label' => 'Front Desk', 'href' => '/bookings'],
+        ['label' => 'Checkout']
+    ];
+    
+    ob_start();
+    include VIEWS_PATH . '/bookings/checkout.php';
+    $content = ob_get_clean();
+    
+    include VIEWS_PATH . '/layouts/app.php';
 }
 
 function handleBookingCancel(Auth $auth, int $bookingId): void

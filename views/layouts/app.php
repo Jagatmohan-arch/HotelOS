@@ -98,6 +98,8 @@ $breadcrumbs = $breadcrumbs ?? [];
             --neon-cyan: #22d3ee;
         }
         
+        [x-cloak] { display: none !important; }
+        
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
