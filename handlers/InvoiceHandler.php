@@ -153,6 +153,12 @@ class InvoiceHandler
         
         $transactionId = $this->db->lastInsertId();
         
+        // Fetch old state for audit
+        $oldBooking = $this->db->queryOne(
+            "SELECT * FROM bookings WHERE id = :id",
+            ['id' => $bookingId]
+        );
+
         // Update booking paid amount
         $this->db->execute(
             "UPDATE bookings SET 
@@ -163,6 +169,27 @@ class InvoiceHandler
              END
              WHERE id = :id",
             ['id' => $bookingId, 'amount' => $amount, 'amount2' => $amount]
+        );
+        
+        // Fetch new state for audit
+        $newBooking = $this->db->queryOne(
+            "SELECT * FROM bookings WHERE id = :id",
+            ['id' => $bookingId]
+        );
+        
+        // Log Audit
+        \HotelOS\Core\Auth::logAudit(
+            'payment_collected',
+            'booking',
+            $bookingId,
+            [
+                'paid_amount' => $oldBooking['paid_amount'],
+                'payment_status' => $oldBooking['payment_status']
+            ],
+            [
+                'paid_amount' => $newBooking['paid_amount'],
+                'payment_status' => $newBooking['payment_status']
+            ]
         );
         
         return $transactionId;

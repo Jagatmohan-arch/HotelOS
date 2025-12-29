@@ -117,6 +117,54 @@ function formatActionBadge($action) {
                                         <?= htmlspecialchars($log['description']) ?>
                                     </p>
                                 <?php endif; ?>
+
+                                <?php 
+                                // Parse JSON diffs if available
+                                $old = !empty($log['old_values']) ? json_decode($log['old_values'], true) : [];
+                                $new = !empty($log['new_values']) ? json_decode($log['new_values'], true) : [];
+                                
+                                if (!empty($old) || !empty($new)): 
+                                ?>
+                                    <div class="mt-3 bg-gray-50 rounded-lg p-3 text-xs border border-gray-200" x-data="{ expanded: false }">
+                                        <button @click="expanded = !expanded" class="flex items-center gap-1 text-indigo-600 font-medium hover:underline mb-1">
+                                            <i data-lucide="chevrons-up-down" class="w-3 h-3"></i>
+                                            <span x-text="expanded ? 'Hide Details' : 'View Data Changes'"></span>
+                                        </button>
+                                        
+                                        <div x-show="expanded" class="grid grid-cols-2 gap-4 mt-2" style="display: none;">
+                                            <div>
+                                                <span class="block text-gray-400 font-bold uppercase mb-1" style="font-size: 0.65rem;">Before</span>
+                                                <?php if (empty($old)): ?>
+                                                    <span class="text-gray-400 italic">-</span>
+                                                <?php else: ?>
+                                                    <ul class="space-y-1">
+                                                        <?php foreach ($old as $k => $v): ?>
+                                                            <li class="flex justify-between">
+                                                                <span class="text-gray-500"><?= htmlspecialchars($k) ?>:</span>
+                                                                <span class="font-mono text-red-600 bg-red-50 px-1 rounded"><?= is_array($v) ? json_encode($v) : htmlspecialchars((string)$v) ?></span>
+                                                            </li>
+                                                        <?php endforeach; ?>
+                                                    </ul>
+                                                <?php endif; ?>
+                                            </div>
+                                            <div>
+                                                <span class="block text-gray-400 font-bold uppercase mb-1" style="font-size: 0.65rem;">After</span>
+                                                <?php if (empty($new)): ?>
+                                                    <span class="text-gray-400 italic">-</span>
+                                                <?php else: ?>
+                                                    <ul class="space-y-1">
+                                                        <?php foreach ($new as $k => $v): ?>
+                                                            <li class="flex justify-between">
+                                                                <span class="text-gray-500"><?= htmlspecialchars($k) ?>:</span>
+                                                                <span class="font-mono text-emerald-600 bg-emerald-50 px-1 rounded"><?= is_array($v) ? json_encode($v) : htmlspecialchars((string)$v) ?></span>
+                                                            </li>
+                                                        <?php endforeach; ?>
+                                                    </ul>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
                                 
                                 <!-- Metadata -->
                                 <div class="mt-2 text-xs text-gray-400 flex items-center gap-3">

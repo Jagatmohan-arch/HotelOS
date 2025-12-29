@@ -147,6 +147,7 @@ if (!in_array($currentTab, $validTabs)) $currentTab = 'arrivals';
                         <th>Check-in</th>
                         <th>Check-out</th>
                         <th>Status</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
                 <tbody id="inhouse-table">
@@ -555,6 +556,9 @@ function renderInHouseTable(bookings) {
             <td>${b.check_in_date}</td>
             <td>${b.check_out_date}</td>
             <td><span class="badge badge--success">Checked In</span></td>
+            <td>
+                <button class="btn btn--sm" style="background: rgba(59, 130, 246, 0.2); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.4);" onclick="openMoveModal(${b.id}, '${b.room_number}', '${b.first_name} ${b.last_name}')">Move</button>
+            </td>
         </tr>
     `).join('');
 }
@@ -588,4 +592,121 @@ function checkOut(bookingId) {
             }
         });
 }
+// Room Move Functionality
+let currentMoveBookingId = null;
+
+function openMoveModal(bookingId, currentRoom, guestName) {
+    currentMoveBookingId = bookingId;
+    document.getElementById('move-modal').classList.add('active');
+    document.getElementById('move-guest-name').innerText = guestName;
+    document.getElementById('move-current-room').innerText = currentRoom;
+    
+    // Load available rooms
+    const select = document.getElementById('move-new-room');
+    select.innerHTML = '<option>Loading...</option>';
+    
+    // Fetch rooms available for today
+    fetch(`/api/rooms/available?check_in=${new Date().toISOString().split('T')[0]}&check_out=${new Date(Date.now() + 86400000).toISOString().split('T')[0]}`)
+       .then(r => r.json())
+       .then(data => {
+           if(data.success && data.data.length > 0) {
+               select.innerHTML = data.data.map(r => `<option value="${r.id}">${r.room_number} (${r.type_name} - ₹${r.price})</option>`).join('');
+           } else {
+               select.innerHTML = '<option value="">No rooms available</option>';
+           }
+       });
+}
+
+function closeMoveModal() {
+    document.getElementById('move-modal').classList.remove('active');
+    currentMoveBookingId = null;
+}
+
+function submitMove() {
+    if (!currentMoveBookingId) return;
+    
+    const newRoomId = document.getElementById('move-new-room').value;
+    const notes = document.getElementById('move-notes').value;
+    const rateAction = document.getElementById('move-rate-action').value;
+    
+    if (!newRoomId) { alert('Please select a room'); return; }
+    
+    if (!confirm('Confirm room move? This will change room status and log the move.')) return;
+    
+    fetch(`/api/bookings/${currentMoveBookingId}/move-room`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            new_room_id: newRoomId,
+            reason: 'requested',
+            notes: notes,
+            rate_action: rateAction
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('Room moved successfully!');
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Failed to move room'));
+        }
+    });
+}
 </script>
+
+<!-- Room Move Modal -->
+<div id="move-modal" class="modal-overlay">
+    <div class="modal-content glass-card">
+        <div class="p-6">
+            <h2 class="text-xl font-bold text-white mb-4">Move Room</h2>
+            
+            <div class="mb-4 text-sm text-slate-300 bg-slate-800 p-3 rounded-lg">
+                Moving <strong id="move-guest-name" class="text-white"></strong> 
+                from Room <strong id="move-current-room" class="text-cyan-400"></strong>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">Select New Room</label>
+                    <select id="move-new-room" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+                        <option>Select Room...</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">Rate Adjustment</label>
+                    <select id="move-rate-action" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+                        <option value="keep_original">Keep Original Rate (Free Upgrade/Swap)</option>
+                        <option value="use_new_rate">Apply New Room Rate</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">Reason / Notes</label>
+                    <textarea id="move-notes" rows="2" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white" placeholder="e.g. AC issue, upgrade..."></textarea>
+                </div>
+                
+                <div class="flex gap-3 mt-6">
+                    <button onclick="closeMoveModal()" class="flex-1 py-2 bg-slate-700 rounded-lg text-slate-200">Cancel</button>
+                    <button onclick="submitMove()" class="flex-1 py-2 bg-indigo-600 rounded-lg text-white font-bold hover:bg-indigo-500">Confirm Move</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+}
+.modal-overlay.active { display: flex; }
+.modal-content { width: 100%; max-width: 400px; }
+</style>
