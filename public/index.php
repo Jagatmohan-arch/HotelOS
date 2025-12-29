@@ -1324,12 +1324,60 @@ function renderDashboard(Auth $auth): void
     $arrivalsDetail = $dashboardHandler->getTodayArrivalsDetail();
     $departuresDetail = $dashboardHandler->getTodayDeparturesDetail();
     
+    // Build alerts for Owner (pending actions needing attention)
+    $alerts = [];
+    
+    // Check for pending refunds (Owner/Manager)
+    if ($auth->isManager()) {
+        $db = \HotelOS\Core\Database::getInstance();
+        $pendingRefunds = $db->queryOne(
+            "SELECT COUNT(*) as count FROM refund_requests WHERE status = 'pending'",
+            []
+        );
+        if ($pendingRefunds && $pendingRefunds['count'] > 0) {
+            $alerts[] = [
+                'type' => 'warning',
+                'icon' => 'receipt-refund',
+                'title' => $pendingRefunds['count'] . ' Refund Request(s)',
+                'description' => 'Pending approval',
+                'href' => '/admin/refunds'
+            ];
+        }
+    }
+    
+    // Check for dirty rooms
+    if ($dirtyRooms > 3) {
+        $alerts[] = [
+            'type' => 'info',
+            'icon' => 'sparkles',
+            'title' => $dirtyRooms . ' Rooms Need Cleaning',
+            'description' => 'Housekeeping required',
+            'href' => '/housekeeping'
+        ];
+    }
+    
+    // Check for pending checkouts
+    if ($todayDepartures > 0) {
+        $alerts[] = [
+            'type' => 'warning',
+            'icon' => 'log-out',
+            'title' => $todayDepartures . ' Pending Checkout(s)',
+            'description' => 'Due today',
+            'href' => '/bookings?tab=departures'
+        ];
+    }
+    
+    // Add dirty rooms count to status summary
+    $statusSummary['dirty'] = $dirtyRooms;
+    
     $title = 'Dashboard';
     $currentRoute = 'dashboard';
     $breadcrumbs = [];
     
     ob_start();
+    // Include both desktop and mobile views
     include VIEWS_PATH . '/dashboard/index.php';
+    include VIEWS_PATH . '/dashboard/mobile.php';
     $content = ob_get_clean();
     
     include VIEWS_PATH . '/layouts/app.php';

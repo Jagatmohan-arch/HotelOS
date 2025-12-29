@@ -35,8 +35,8 @@ $arrivalsDetail = $arrivalsDetail ?? [];
 $departuresDetail = $departuresDetail ?? [];
 ?>
 
-<!-- Dashboard Content -->
-<div class="dashboard-page animate-fadeIn">
+<!-- Dashboard Content (Desktop Only) -->
+<div class="dashboard-page animate-fadeIn hidden md:block">
     <!-- Page Header -->
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
