@@ -21,7 +21,8 @@ return [
     // Session Configuration
     'session'   => [
         'name'     => 'HOTELOS_SESSION',
-        'lifetime' => 120, // minutes
+        'lifetime' => 120, // minutes (desktop)
+        'mobile_lifetime' => 15, // minutes (mobile - shorter for security)
         'secure'   => true,
         'httponly' => true,
         'samesite' => 'Lax',

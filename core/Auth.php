@@ -85,8 +85,56 @@ class Auth
         
         // Load user from session if exists
         if (isset($_SESSION['user_id'], $_SESSION['tenant_id'])) {
+            // Check for mobile session timeout (15 min inactivity)
+            if ($this->isMobileSessionExpired()) {
+                $this->logout();
+                return;
+            }
+            
+            // Update last activity timestamp
+            $_SESSION['last_activity'] = time();
+            
             $this->loadUserFromSession();
         }
+    }
+    
+    /**
+     * Check if mobile session has expired due to inactivity
+     */
+    private function isMobileSessionExpired(): bool
+    {
+        // Check if mobile device
+        if (!$this->isMobileDevice()) {
+            return false;
+        }
+        
+        // Check last activity
+        $lastActivity = $_SESSION['last_activity'] ?? time();
+        $sessionConfig = $this->config['session'];
+        $mobileTimeout = ($sessionConfig['mobile_lifetime'] ?? 15) * 60; // Convert to seconds
+        
+        return (time() - $lastActivity) > $mobileTimeout;
+    }
+    
+    /**
+     * Detect if current request is from a mobile device
+     */
+    public function isMobileDevice(): bool
+    {
+        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        
+        $mobileAgents = [
+            'Mobile', 'Android', 'iPhone', 'iPad', 'iPod',
+            'BlackBerry', 'IEMobile', 'Opera Mini', 'webOS'
+        ];
+        
+        foreach ($mobileAgents as $agent) {
+            if (stripos($userAgent, $agent) !== false) {
+                return true;
+            }
+        }
+        
+        return false;
     }
 
     /**
