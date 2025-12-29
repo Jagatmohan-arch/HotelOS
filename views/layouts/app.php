@@ -32,6 +32,11 @@ $breadcrumbs = $breadcrumbs ?? [];
     <meta name="description" content="HotelOS - Next-Gen Hotel Property Management System">
     <meta name="robots" content="noindex, nofollow">
     
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="apple-touch-icon" href="/assets/icons/icon-192x192.png">
+    
     <!-- Security -->
     <meta name="csrf-token" content="<?= htmlspecialchars($csrfToken ?? '') ?>">
     <meta http-equiv="Content-Security-Policy" content="
@@ -703,6 +708,19 @@ $breadcrumbs = $breadcrumbs ?? [];
                 Alpine.effect(() => {
                     setTimeout(() => lucide.createIcons(), 50);
                 });
+            });
+        }
+        
+        // PWA Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('SW registered:', registration.scope);
+                    })
+                    .catch(err => {
+                        console.log('SW registration failed:', err);
+                    });
             });
         }
     </script>
