@@ -103,20 +103,52 @@
                         <div 
                             @click="selectGuest(guest)"
                             class="search-result-item"
-                            :class="{ 'search-result-item--selected': selectedGuest?.id === guest.id }"
+                            :class="{ 
+                                'search-result-item--selected': selectedGuest?.id === guest.id,
+                                'search-result-item--blacklisted': guest.is_blacklisted
+                            }"
                         >
-                            <div class="guest-avatar">
+                            <div class="guest-avatar" :class="{ 'guest-avatar--blacklisted': guest.is_blacklisted }">
                                 <span x-text="guest.first_name.charAt(0)"></span>
                             </div>
-                            <div class="guest-info">
+                            <div class="guest-info flex-1">
                                 <p class="guest-name" x-text="guest.first_name + ' ' + (guest.last_name || '')"></p>
                                 <p class="guest-phone" x-text="guest.phone"></p>
                             </div>
-                            <div class="guest-stats">
-                                <span class="badge badge--cyan" x-text="(guest.total_stays || 0) + ' stays'"></span>
+                            <div class="guest-badges flex flex-wrap gap-1">
+                                <!-- Category Badge -->
+                                <template x-if="guest.badge && guest.category !== 'regular'">
+                                    <span 
+                                        class="badge text-xs"
+                                        :class="{
+                                            'badge--amber': guest.badge.color === 'amber',
+                                            'badge--blue': guest.badge.color === 'blue',
+                                            'badge--purple': guest.badge.color === 'purple',
+                                            'badge--red': guest.badge.color === 'red'
+                                        }"
+                                        x-text="guest.badge.label"
+                                    ></span>
+                                </template>
+                                <!-- Stays count -->
+                                <span class="badge badge--cyan text-xs" x-text="(guest.total_stays || 0) + ' stays'"></span>
                             </div>
                         </div>
                     </template>
+                </div>
+                
+                <!-- Blacklist Warning Alert -->
+                <div 
+                    x-show="selectedGuest?.is_blacklisted" 
+                    x-transition
+                    class="blacklist-warning"
+                >
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="alert-triangle" class="w-6 h-6 text-red-400"></i>
+                        <div>
+                            <p class="text-red-300 font-semibold">⚠️ BLACKLISTED GUEST</p>
+                            <p class="text-red-400/80 text-sm">This guest has been blacklisted. Proceeding requires Manager approval.</p>
+                        </div>
+                    </div>
                 </div>
                 
                 <!-- No Results / New Guest -->
@@ -660,6 +692,49 @@
     .form-row {
         grid-template-columns: 1fr;
     }
+}
+
+/* Badge Colors */
+.badge--amber {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badge--blue {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.badge--purple {
+    background: rgba(139, 92, 246, 0.15);
+    color: #a78bfa;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.badge--red {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Blacklist Styles */
+.search-result-item--blacklisted {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.guest-avatar--blacklisted {
+    background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+}
+
+.blacklist-warning {
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 0.5rem;
 }
 </style>
 

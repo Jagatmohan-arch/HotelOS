@@ -500,33 +500,64 @@ class Auth
     }
 
     /**
-     * Log audit event
+     * Log audit event with optional diff tracking
+     * 
+     * @param string $action Action performed (e.g., 'booking_update', 'refund_approved')
+     * @param string $entityType Entity type (e.g., 'bookings', 'transactions')
+     * @param int|string|null $entityId Entity ID
+     * @param array|null $oldValues Previous values (for diff tracking)
+     * @param array|null $newValues New values (for diff tracking)
      */
-    /**
-     * Log audit event
-     */
-    public function logAudit(string $action, string $entityType, int|string|null $entityId = null): void
+    public function logAudit(
+        string $action, 
+        string $entityType, 
+        int|string|null $entityId = null,
+        ?array $oldValues = null,
+        ?array $newValues = null
+    ): void
     {
-        $entityId = $entityId !== null ? (int) $entityId : null;  // Cast to int
+        $entityId = $entityId !== null ? (int) $entityId : null;
         
         if (!TenantContext::isActive()) {
             return;
         }
 
         try {
+            // Prepare JSON for old/new values (financial field tracking)
+            $oldValuesJson = $oldValues ? json_encode($oldValues, JSON_UNESCAPED_UNICODE) : null;
+            $newValuesJson = $newValues ? json_encode($newValues, JSON_UNESCAPED_UNICODE) : null;
+            
+            // Build description from changes
+            $description = null;
+            if ($oldValues && $newValues) {
+                $changes = [];
+                foreach ($newValues as $key => $newVal) {
+                    $oldVal = $oldValues[$key] ?? null;
+                    if ($oldVal !== $newVal) {
+                        $changes[] = "{$key}: {$oldVal} → {$newVal}";
+                    }
+                }
+                if (!empty($changes)) {
+                    $description = implode('; ', $changes);
+                }
+            }
+            
             $this->db->execute(
-                "INSERT INTO audit_logs (tenant_id, user_id, action, entity_type, entity_id, ip_address, user_agent) 
-                 VALUES (:tenant_id, :user_id, :action, :entity_type, :entity_id, :ip, :ua)",
+                "INSERT INTO audit_logs (tenant_id, user_id, action, entity_type, entity_id, description, old_values, new_values, ip_address, user_agent) 
+                 VALUES (:tenant_id, :user_id, :action, :entity_type, :entity_id, :description, :old_values, :new_values, :ip, :ua)",
                 [
                     'tenant_id'   => TenantContext::getId(),
                     'user_id'     => $this->user['id'] ?? null,
                     'action'      => $action,
                     'entity_type' => $entityType,
                     'entity_id'   => $entityId,
+                    'description' => $description,
+                    'old_values'  => $oldValuesJson,
+                    'new_values'  => $newValuesJson,
                     'ip'          => $_SERVER['REMOTE_ADDR'] ?? null,
                     'ua'          => substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500),
                 ],
-                enforceTenant: false // We're manually setting tenant_id
+                enforceTenant: false
             );
         } catch (\Exception $e) {
             error_log("Audit log failed: " . $e->getMessage());

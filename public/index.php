@@ -208,6 +208,13 @@ if (str_starts_with($requestUri, '/api/')) {
             
             $handler = new \HotelOS\Handlers\GuestHandler();
             $results = $handler->search($query, $limit);
+            
+            // Add badge info to each guest for frontend display
+            foreach ($results as &$guest) {
+                $guest['badge'] = \HotelOS\Handlers\GuestHandler::getCategoryBadge($guest['category'] ?? 'regular');
+                $guest['is_blacklisted'] = ($guest['category'] ?? '') === 'blacklisted';
+            }
+            
             echo json_encode(['success' => true, 'data' => $results]);
             exit;
         }
@@ -243,6 +250,41 @@ if (str_starts_with($requestUri, '/api/')) {
             
             $guestId = $handler->create($data);
             echo json_encode(['success' => true, 'guest_id' => $guestId]);
+            exit;
+        }
+        
+        // POST /api/guests/{id}/category - Update guest category (Manager+)
+        if (preg_match('#^/api/guests/(\d+)/category$#', $requestUri, $matches) && $requestMethod === 'POST') {
+            requireApiAuth();
+            $auth = Auth::getInstance();
+            
+            if (!$auth->isManager()) {
+                http_response_code(403);
+                echo json_encode(['error' => 'Manager permission required']);
+                exit;
+            }
+            
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            
+            if (empty($data['category'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Category is required']);
+                exit;
+            }
+            
+            $handler = new \HotelOS\Handlers\GuestHandler();
+            $result = $handler->updateCategory(
+                (int)$matches[1],
+                $data['category'],
+                $data['notes'] ?? null
+            );
+            
+            if ($result['success']) {
+                echo json_encode($result);
+            } else {
+                http_response_code(400);
+                echo json_encode($result);
+            }
             exit;
         }
         
@@ -341,6 +383,85 @@ if (str_starts_with($requestUri, '/api/')) {
             exit;
         }
         
+        // POST /api/bookings/{id}/tax-exempt - Set tax exemption (Manager+)
+        if (preg_match('#^/api/bookings/(\d+)/tax-exempt$#', $requestUri, $matches) && $requestMethod === 'POST') {
+            requireApiAuth();
+            $auth = Auth::getInstance();
+            
+            if (!$auth->isManager()) {
+                http_response_code(403);
+                echo json_encode(['error' => 'Manager permission required']);
+                exit;
+            }
+            
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            
+            $handler = new \HotelOS\Handlers\BookingHandler();
+            $result = $handler->setTaxExempt(
+                (int)$matches[1],
+                (bool)($data['exempt'] ?? false),
+                $data['reason'] ?? ''
+            );
+            
+            if ($result['success']) {
+                echo json_encode($result);
+            } else {
+                http_response_code(400);
+                echo json_encode($result);
+            }
+            exit;
+        }
+        
+        // POST /api/bookings/{id}/move-room
+        if (preg_match('#^/api/bookings/(\d+)/move-room$#', $requestUri, $matches) && $requestMethod === 'POST') {
+            requireApiAuth();
+            $auth = Auth::getInstance();
+            
+            // Manager+ only
+            if (!$auth->isManager()) {
+                http_response_code(403);
+                echo json_encode(['error' => 'Manager permission required']);
+                exit;
+            }
+            
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            
+            if (empty($data['new_room_id'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'new_room_id required']);
+                exit;
+            }
+            
+            $handler = new \HotelOS\Handlers\BookingHandler();
+            $result = $handler->moveRoom(
+                (int)$matches[1],
+                (int)$data['new_room_id'],
+                $data['reason'] ?? 'guest_request',
+                $data['rate_action'] ?? 'keep_original',
+                isset($data['custom_rate']) ? (float)$data['custom_rate'] : null,
+                $data['notes'] ?? null
+            );
+            
+            if ($result['success']) {
+                echo json_encode($result);
+            } else {
+                http_response_code(400);
+                echo json_encode($result);
+            }
+            exit;
+        }
+        
+        // GET /api/bookings/{id}/move-history
+        if (preg_match('#^/api/bookings/(\d+)/move-history$#', $requestUri, $matches) && $requestMethod === 'GET') {
+            requireApiAuth();
+            
+            $handler = new \HotelOS\Handlers\BookingHandler();
+            $history = $handler->getRoomMoveHistory((int)$matches[1]);
+            
+            echo json_encode(['success' => true, 'history' => $history]);
+            exit;
+        }
+        
         // ========== Housekeeping APIs ==========
         
         // POST /api/housekeeping/status - Update room cleaning status
@@ -362,6 +483,361 @@ if (str_starts_with($requestUri, '/api/')) {
                 http_response_code(400);
                 echo json_encode(['error' => $e->getMessage()]);
             }
+            exit;
+        }
+        
+        // ========== Refund APIs (2-Person Approval) ==========
+        
+        // POST /api/refunds/request - Staff initiates refund
+        if ($requestUri === '/api/refunds/request' && $requestMethod === 'POST') {
+            requireApiAuth();
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            
+            $handler = new \HotelOS\Handlers\RefundHandler();
+            $userId = Auth::getInstance()->user()['id'] ?? 0;
+            
+            if (empty($data['booking_id']) || empty($data['amount']) || empty($data['reason_code'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'booking_id, amount, and reason_code are required']);
+                exit;
+            }
+            
+            $result = $handler->requestRefund(
+                (int)$data['booking_id'],
+                (float)$data['amount'],
+                $data['reason_code'],
+                $data['reason_text'] ?? null,
+                $userId
+            );
+            
+            if ($result['success']) {
+                echo json_encode($result);
+            } else {
+                http_response_code(400);
+                echo json_encode($result);
+            }
+            exit;
+        }
+        
+        // GET /api/refunds/pending - Manager fetches pending requests
+        if ($requestUri === '/api/refunds/pending' && $requestMethod === 'GET') {
+            requireApiAuth();
+            $auth = Auth::getInstance();
+            
+            if (!$auth->isManager()) {
+                http_response_code(403);
+                echo json_encode(['error' => 'Manager access required']);
+                exit;
+            }
+            
+            $handler = new \HotelOS\Handlers\RefundHandler();
+            echo json_encode(['success' => true, 'data' => $handler->getPendingRefunds()]);
+            exit;
+        }
+        
+        // POST /api/refunds/{id}/approve - Manager approves
+        if (preg_match('#^/api/refunds/(\d+)/approve$#', $requestUri, $matches) && $requestMethod === 'POST') {
+            requireApiAuth();
+            $auth = Auth::getInstance();
+            
+            if (!$auth->isManager()) {
+                http_response_code(403);
+                echo json_encode(['error' => 'Manager access required']);
+                exit;
+            }
+            
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $handler = new \HotelOS\Handlers\RefundHandler();
+            $result = $handler->approveRefund(
+                (int)$matches[1],
+                $auth->user()['id'],
+                $data['refund_mode'] ?? 'cash'
+            );
+            
+            if ($result['success']) {
+                echo json_encode($result);
+            } else {
+                http_response_code(400);
+                echo json_encode($result);
+            }
+            exit;
+        }
+        
+        // POST /api/refunds/{id}/reject - Manager rejects
+        if (preg_match('#^/api/refunds/(\d+)/reject$#', $requestUri, $matches) && $requestMethod === 'POST') {
+            requireApiAuth();
+            $auth = Auth::getInstance();
+            
+            if (!$auth->isManager()) {
+                http_response_code(403);
+                echo json_encode(['error' => 'Manager access required']);
+                exit;
+            }
+            
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $handler = new \HotelOS\Handlers\RefundHandler();
+            $result = $handler->rejectRefund(
+                (int)$matches[1],
+                $auth->user()['id'],
+                $data['note'] ?? ''
+            );
+            
+            if ($result['success']) {
+                echo json_encode($result);
+            } else {
+                http_response_code(400);
+                echo json_encode($result);
+            }
+            exit;
+        }
+        
+        // GET /api/refunds/booking/{id} - Get refund history for booking
+        if (preg_match('#^/api/refunds/booking/(\d+)$#', $requestUri, $matches) && $requestMethod === 'GET') {
+            requireApiAuth();
+            $handler = new \HotelOS\Handlers\RefundHandler();
+            echo json_encode(['success' => true, 'data' => $handler->getRefundHistory((int)$matches[1])]);
+            exit;
+        }
+        
+        // ========== ENGINE APIs (Owner-Only) ==========
+        
+        // GET /api/engine/dashboard - Engine overview data
+        if ($requestUri === '/api/engine/dashboard' && $requestMethod === 'GET') {
+            requireApiAuth();
+            $auth = Auth::getInstance();
+            if (!$auth->isOwner()) {
+                http_response_code(403);
+                exit;
+            }
+            
+            $handler = new \HotelOS\Handlers\EngineHandler();
+            echo json_encode([
+                'success' => true,
+                'hotel_setup' => $handler->getHotelSetup(),
+                'branding' => $handler->getBrandingAssets(),
+                'staff_count' => count($handler->getStaffList())
+            ]);
+            exit;
+        }
+        
+        // GET /api/engine/staff - Get all staff
+        if ($requestUri === '/api/engine/staff' && $requestMethod === 'GET') {
+            requireApiAuth();
+            $auth = Auth::getInstance();
+            if (!$auth->isOwner()) { http_response_code(403); exit; }
+            
+            $handler = new \HotelOS\Handlers\EngineHandler();
+            echo json_encode(['success' => true, 'staff' => $handler->getStaffList()]);
+            exit;
+        }
+        
+        // POST /api/engine/staff/{id}/pin - Generate PIN for staff
+        if (preg_match('#^/api/engine/staff/(\d+)/pin$#', $requestUri, $matches) && $requestMethod === 'POST') {
+            requireApiAuth();
+            $auth = Auth::getInstance();
+            if (!$auth->isOwner()) { http_response_code(403); exit; }
+            
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $handler = new \HotelOS\Handlers\EngineHandler();
+            $result = $handler->generateStaffPin((int)$matches[1], $data['reason'] ?? 'PIN generated by owner');
+            
+            echo json_encode($result);
+            exit;
+        }
+        
+        // POST /api/engine/staff/{id}/block - Block/unblock staff
+        if (preg_match('#^/api/engine/staff/(\d+)/block$#', $requestUri, $matches) && $requestMethod === 'POST') {
+            requireApiAuth();
+            $auth = Auth::getInstance();
+            if (!$auth->isOwner()) { http_response_code(403); exit; }
+            
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $handler = new \HotelOS\Handlers\EngineHandler();
+            $result = $handler->setStaffActive(
+                (int)$matches[1],
+                (bool)($data['active'] ?? false),
+                $data['reason'] ?? 'Status changed by owner'
+            );
+            
+            echo json_encode($result);
+            exit;
+        }
+        
+        // POST /api/engine/staff/{id}/logout - Force logout staff
+        if (preg_match('#^/api/engine/staff/(\d+)/logout$#', $requestUri, $matches) && $requestMethod === 'POST') {
+            requireApiAuth();
+            $auth = Auth::getInstance();
+            if (!$auth->isOwner()) { http_response_code(403); exit; }
+            
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $handler = new \HotelOS\Handlers\EngineHandler();
+            $result = $handler->forceLogoutStaff((int)$matches[1], $data['reason'] ?? 'Force logout by owner');
+            
+            echo json_encode($result);
+            exit;
+        }
+        
+        // POST /api/engine/branding/upload - Upload branding asset
+        if ($requestUri === '/api/engine/branding/upload' && $requestMethod === 'POST') {
+            requireApiAuth();
+            $auth = Auth::getInstance();
+            if (!$auth->isOwner()) { http_response_code(403); exit; }
+            
+            $assetType = $_POST['asset_type'] ?? '';
+            $reason = $_POST['reason'] ?? 'Branding uploaded';
+            
+            if (empty($_FILES['file'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'No file uploaded']);
+                exit;
+            }
+            
+            $handler = new \HotelOS\Handlers\EngineHandler();
+            $result = $handler->uploadBrandingAsset($assetType, $_FILES['file'], $reason);
+            
+            echo json_encode($result);
+            exit;
+        }
+        
+        // POST /api/engine/setup - Update hotel setup
+        if ($requestUri === '/api/engine/setup' && $requestMethod === 'POST') {
+            requireApiAuth();
+            $auth = Auth::getInstance();
+            if (!$auth->isOwner()) { http_response_code(403); exit; }
+            
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $handler = new \HotelOS\Handlers\EngineHandler();
+            $result = $handler->updateHotelSetup($data, $data['reason'] ?? 'Settings updated');
+            
+            echo json_encode($result);
+            exit;
+        }
+        
+        // POST /api/engine/data-lock - Set data lock date
+        if ($requestUri === '/api/engine/data-lock' && $requestMethod === 'POST') {
+            requireApiAuth();
+            $auth = Auth::getInstance();
+            if (!$auth->isOwner()) { http_response_code(403); exit; }
+            
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $handler = new \HotelOS\Handlers\EngineHandler();
+            $result = $handler->setDataLock($data['lock_until'] ?? null, $data['reason'] ?? 'Data locked');
+            
+            echo json_encode($result);
+            exit;
+        }
+        
+        // GET /api/engine/logs - Get engine action logs
+        if ($requestUri === '/api/engine/logs' && $requestMethod === 'GET') {
+            requireApiAuth();
+            $auth = Auth::getInstance();
+            if (!$auth->isOwner()) { http_response_code(403); exit; }
+            
+            $handler = new \HotelOS\Handlers\EngineHandler();
+            $logs = $handler->getEngineLogs(
+                $_GET['from'] ?? null,
+                $_GET['to'] ?? null,
+                isset($_GET['user_id']) ? (int)$_GET['user_id'] : null,
+                $_GET['action'] ?? null,
+                $_GET['risk'] ?? null
+            );
+            
+            echo json_encode(['success' => true, 'logs' => $logs]);
+            exit;
+        }
+        
+        // POST /api/engine/maintenance - Toggle maintenance mode
+        if ($requestUri === '/api/engine/maintenance' && $requestMethod === 'POST') {
+            requireApiAuth();
+            $auth = Auth::getInstance();
+            if (!$auth->isOwner()) { http_response_code(403); exit; }
+            
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $handler = new \HotelOS\Handlers\EngineHandler();
+            $result = $handler->setMaintenanceMode(
+                (bool)($data['enabled'] ?? false),
+                $data['message'] ?? null,
+                $data['reason'] ?? 'Maintenance mode changed'
+            );
+            
+            echo json_encode($result);
+            exit;
+        }
+        
+        // POST /api/engine/cash-adjust - Cash adjustment
+        if ($requestUri === '/api/engine/cash-adjust' && $requestMethod === 'POST') {
+            requireApiAuth();
+            $auth = Auth::getInstance();
+            if (!$auth->isOwner()) { http_response_code(403); exit; }
+            
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            
+            if (empty($data['shift_id']) || !isset($data['amount']) || empty($data['reason']) || empty($data['confirm_password'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'All fields required']);
+                exit;
+            }
+            
+            $handler = new \HotelOS\Handlers\EngineHandler();
+            $result = $handler->adjustShiftCash(
+                (int)$data['shift_id'],
+                (float)$data['amount'],
+                $data['reason'],
+                $data['confirm_password']
+            );
+            
+            echo json_encode($result);
+            exit;
+        }
+        
+        // POST /api/engine/invoice/{id}/modify - Modify invoice (DANGER)
+        if (preg_match('#^/api/engine/invoice/(\d+)/modify$#', $requestUri, $matches) && $requestMethod === 'POST') {
+            requireApiAuth();
+            $auth = Auth::getInstance();
+            if (!$auth->isOwner()) { http_response_code(403); exit; }
+            
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            
+            if (empty($data['reason']) || strlen($data['reason']) < 20 || empty($data['confirm_password'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Reason (20+ chars) and password required']);
+                exit;
+            }
+            
+            $handler = new \HotelOS\Handlers\EngineHandler();
+            $result = $handler->modifyInvoice(
+                (int)$matches[1],
+                $data,
+                $data['reason'],
+                $data['confirm_password']
+            );
+            
+            echo json_encode($result);
+            exit;
+        }
+        
+        // POST /api/engine/invoice/{id}/void - Void invoice (DANGER)
+        if (preg_match('#^/api/engine/invoice/(\d+)/void$#', $requestUri, $matches) && $requestMethod === 'POST') {
+            requireApiAuth();
+            $auth = Auth::getInstance();
+            if (!$auth->isOwner()) { http_response_code(403); exit; }
+            
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            
+            if (empty($data['reason']) || strlen($data['reason']) < 20 || empty($data['confirm_password'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Reason (20+ chars) and password required']);
+                exit;
+            }
+            
+            $handler = new \HotelOS\Handlers\EngineHandler();
+            $result = $handler->voidInvoice(
+                (int)$matches[1],
+                $data['reason'],
+                $data['confirm_password']
+            );
+            
+            echo json_encode($result);
             exit;
         }
         
@@ -620,113 +1096,41 @@ try {
         case '/admin/ledger':
             renderAdminLedgerPage($auth);
             break;
+            
+        // ========== Admin: Refund Queue (2-Person Approval) ==========
+        case '/admin/refunds':
+            renderAdminRefundsPage($auth);
+            break;
+        
+        // ========== HOTEL ENGINE (Owner-Only Super Control) ==========
+        case '/engine':
+        case '/engine/dashboard':
+            renderEngineDashboard($auth);
+            break;
+        case '/engine/staff':
+            renderEngineStaff($auth);
+            break;
+        case '/engine/branding':
+            renderEngineBranding($auth);
+            break;
+        case '/engine/audit':
+            renderEngineAudit($auth);
+            break;
+        case '/engine/setup':
+            renderEngineSetup($auth);
+            break;
+        case '/engine/bills':
+            renderEngineBills($auth);
+            break;
+        case '/engine/finance':
+            renderEngineFinance($auth);
             break;
         case '/admin/shifts/verify':
             if ($requestMethod === 'POST') handleShiftVerify($auth);
             break;
-           case '/setup_db':
-            $key = $_GET['key'] ?? '';
-            if ($key !== 'hotelos_setup_2024') die('Access Denied');
             
-            // VERSION CACHE BUSTER
-            echo "HOTFIX-10-LIVE<br>";
-            
-            $db = Database::getInstance();
-            // Bypass Database wrapper to avoid 'WHERE tenant_id = ?' injection on DDL
-            $pdo = $db->getPdo();
-            
-            // 1. Shifts
-            try {
-                $pdo->exec("
-                    CREATE TABLE IF NOT EXISTS `shifts` (
-                        `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-                        `tenant_id` INT UNSIGNED NOT NULL,
-                        `user_id` INT UNSIGNED NOT NULL,
-                        `shift_start_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        `shift_end_at` TIMESTAMP NULL,
-                        `opening_cash` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-                        `closing_cash` DECIMAL(10,2) NULL,
-                        `system_expected_cash` DECIMAL(10,2) NULL,
-                        `variance_amount` DECIMAL(10,2) NULL,
-                        `handover_to_user_id` INT UNSIGNED NULL,
-                        `notes` TEXT NULL,
-                        `verified_by` INT UNSIGNED NULL,
-                        `verified_at` TIMESTAMP NULL,
-                        `manager_note` VARCHAR(255) NULL,
-                        `status` ENUM('OPEN', 'CLOSED') NOT NULL DEFAULT 'OPEN',
-                        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                        PRIMARY KEY (`id`),
-                        INDEX `idx_shifts_tenant` (`tenant_id`),
-                        INDEX `idx_shifts_user` (`user_id`),
-                        INDEX `idx_shifts_status` (`status`)
-                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-                ");
-                echo "Shifts Table Created. ";
-            } catch (Exception $e) { echo "Shift Error: " . $e->getMessage(); }
-            
-            // 2. Ledger
-            try {
-                $pdo->exec("
-                    CREATE TABLE IF NOT EXISTS `cash_ledger` (
-                        `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-                        `tenant_id` INT UNSIGNED NOT NULL,
-                        `shift_id` INT UNSIGNED NOT NULL,
-                        `user_id` INT UNSIGNED NOT NULL,
-                        `type` ENUM('expense', 'addition') NOT NULL,
-                        `amount` DECIMAL(10,2) NOT NULL,
-                        `category` VARCHAR(50) NOT NULL,
-                        `description` VARCHAR(255) NULL,
-                        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        PRIMARY KEY (`id`),
-                        INDEX `idx_ledger_tenant` (`tenant_id`),
-                        INDEX `idx_ledger_shift` (`shift_id`)
-                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-                ");
-                echo "Ledger Table Created. ";
-            } catch (Exception $e) { echo "Ledger Error: " . $e->getMessage(); }
-            
-            // 3. Bookings Columns
-            try {
-                // Check missing columns manually to avoid valid SQL parsing issues
-                $checkIn = $pdo->query("SHOW COLUMNS FROM bookings LIKE 'check_in_time'")->fetch();
-                if (!$checkIn) {
-                    $pdo->exec("ALTER TABLE bookings ADD COLUMN `check_in_time` TIME DEFAULT '14:00:00' AFTER `check_out_date`");
-                }
-                
-                $checkOut = $pdo->query("SHOW COLUMNS FROM bookings LIKE 'check_out_time'")->fetch();
-                if (!$checkOut) {
-                    $pdo->exec("ALTER TABLE bookings ADD COLUMN `check_out_time` TIME DEFAULT '11:00:00' AFTER `check_in_time`");
-                }
-                echo "Bookings patched. ";
-            } catch (Exception $ex) { echo "Booking patch error: " . $ex->getMessage(); }
-            
-            // 4. Police Reports
-            try {
-                $pdo->exec("
-                    CREATE TABLE IF NOT EXISTS `police_reports` (
-                        `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-                        `tenant_id` INT UNSIGNED NOT NULL,
-                        `report_date` DATE NOT NULL,
-                        `status` ENUM('pending', 'submitted') NOT NULL DEFAULT 'pending',
-                        `submitted_at` TIMESTAMP NULL,
-                        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        PRIMARY KEY (`id`),
-                        INDEX `idx_police_reports_tenant` (`tenant_id`),
-                        INDEX `idx_police_reports_date` (`report_date`),
-                        UNIQUE KEY `uniq_tenant_date` (`tenant_id`, `report_date`)
-                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-                ");
-                echo "Police Reports Table Created. ";
-            } catch (Exception $e) { echo "Police Report Error: " . $e->getMessage(); }
-            
-            echo "Brute Force Setup Done.";
-            exit;
-            exit;
-            
-        case '/admin/shifts/verify':
-            if ($requestMethod === 'POST') handleShiftVerify($auth);
-            break;
+        // NOTE: /setup_db backdoor REMOVED for security (2025-12-29)
+        // All schema changes should go through database/migrations/ folder
             
         case '/admin/reports/daily':
             renderDailyReportPage($auth);
@@ -1300,6 +1704,25 @@ function renderInvoicePage(Auth $auth, int $bookingId): void
         return;
     }
     
+    // Fetch branding assets (logo, stamp, signature)
+    $branding = [];
+    try {
+        $db = \HotelOS\Core\Database::getInstance();
+        $tenantId = \HotelOS\Core\TenantContext::getId();
+        
+        $assets = $db->query(
+            "SELECT asset_type, file_path FROM branding_assets WHERE tenant_id = :tid AND is_active = 1",
+            ['tid' => $tenantId],
+            enforceTenant: false
+        );
+        
+        foreach ($assets as $asset) {
+            $branding[$asset['asset_type']] = $asset['file_path'];
+        }
+    } catch (\Throwable $e) {
+        // Branding not available - continue without it
+    }
+    
     // Render standalone (no layout)
     include VIEWS_PATH . '/bookings/invoice.php';
 }
@@ -1611,3 +2034,204 @@ function renderAdminLedgerPage(Auth $auth) {
     }
     require_once PUBLIC_PATH . '/../views/layouts/app.php';
 }
+
+function renderAdminRefundsPage(Auth $auth): void {
+    if (!$auth->isManager()) {
+        header('Location: /dashboard');
+        exit;
+    }
+    
+    $user = $auth->user();
+    $csrfToken = $auth->csrfToken();
+    
+    $handler = new \HotelOS\Handlers\RefundHandler();
+    $pendingRefunds = $handler->getPendingRefunds();
+    $allRefunds = $handler->getAllRefunds(null, null, null, 100);
+    $reasonCodes = \HotelOS\Handlers\RefundHandler::REASON_CODES;
+    
+    $title = 'Refund Requests';
+    $currentRoute = 'admin-refunds';
+    $breadcrumbs = [
+        ['label' => 'Admin'],
+        ['label' => 'Refund Requests']
+    ];
+    
+    ob_start();
+    include VIEWS_PATH . '/admin/refunds/index.php';
+    $content = ob_get_clean();
+    
+    include VIEWS_PATH . '/layouts/app.php';
+}
+
+// ============================================
+// HOTEL ENGINE RENDER FUNCTIONS (Owner-Only)
+// ============================================
+
+function renderEngineDashboard(Auth $auth): void {
+    if (!$auth->isOwner()) {
+        header('Location: /dashboard');
+        exit;
+    }
+    
+    $handler = new \HotelOS\Handlers\EngineHandler();
+    $hotelSetup = $handler->getHotelSetup();
+    $branding = $handler->getBrandingAssets();
+    $staffCount = count($handler->getStaffList());
+    $recentLogs = $handler->getEngineLogs(null, null, null, null, null, 10);
+    
+    $title = 'Hotel Engine';
+    $currentRoute = 'engine';
+    $breadcrumbs = [
+        ['label' => 'Engine'],
+        ['label' => 'Dashboard']
+    ];
+    
+    ob_start();
+    include VIEWS_PATH . '/engine/dashboard.php';
+    $content = ob_get_clean();
+    
+    include VIEWS_PATH . '/layouts/app.php';
+}
+
+function renderEngineStaff(Auth $auth): void {
+    if (!$auth->isOwner()) {
+        header('Location: /dashboard');
+        exit;
+    }
+    
+    $handler = new \HotelOS\Handlers\EngineHandler();
+    $staffList = $handler->getStaffList();
+    
+    $title = 'Staff Engine';
+    $currentRoute = 'engine-staff';
+    $breadcrumbs = [
+        ['label' => 'Engine', 'href' => '/engine'],
+        ['label' => 'Staff']
+    ];
+    
+    ob_start();
+    include VIEWS_PATH . '/engine/staff.php';
+    $content = ob_get_clean();
+    
+    include VIEWS_PATH . '/layouts/app.php';
+}
+
+function renderEngineBranding(Auth $auth): void {
+    if (!$auth->isOwner()) {
+        header('Location: /dashboard');
+        exit;
+    }
+    
+    $handler = new \HotelOS\Handlers\EngineHandler();
+    $branding = $handler->getBrandingAssets();
+    
+    $title = 'Branding Engine';
+    $currentRoute = 'engine-branding';
+    $breadcrumbs = [
+        ['label' => 'Engine', 'href' => '/engine'],
+        ['label' => 'Branding']
+    ];
+    
+    ob_start();
+    include VIEWS_PATH . '/engine/branding.php';
+    $content = ob_get_clean();
+    
+    include VIEWS_PATH . '/layouts/app.php';
+}
+
+function renderEngineAudit(Auth $auth): void {
+    if (!$auth->isOwner()) {
+        header('Location: /dashboard');
+        exit;
+    }
+    
+    $handler = new \HotelOS\Handlers\EngineHandler();
+    $logs = $handler->getEngineLogs(
+        $_GET['from'] ?? null,
+        $_GET['to'] ?? null,
+        isset($_GET['user_id']) ? (int)$_GET['user_id'] : null,
+        $_GET['action'] ?? null,
+        $_GET['risk'] ?? null
+    );
+    $staffList = $handler->getStaffList();
+    
+    $title = 'Audit & Forensics';
+    $currentRoute = 'engine-audit';
+    $breadcrumbs = [
+        ['label' => 'Engine', 'href' => '/engine'],
+        ['label' => 'Audit']
+    ];
+    
+    ob_start();
+    include VIEWS_PATH . '/engine/audit.php';
+    $content = ob_get_clean();
+    
+    include VIEWS_PATH . '/layouts/app.php';
+}
+
+function renderEngineSetup(Auth $auth): void {
+    if (!$auth->isOwner()) {
+        header('Location: /dashboard');
+        exit;
+    }
+    
+    $handler = new \HotelOS\Handlers\EngineHandler();
+    $hotelSetup = $handler->getHotelSetup();
+    
+    $title = 'Setup Engine';
+    $currentRoute = 'engine-setup';
+    $breadcrumbs = [
+        ['label' => 'Engine', 'href' => '/engine'],
+        ['label' => 'Setup']
+    ];
+    
+    ob_start();
+    include VIEWS_PATH . '/engine/setup.php';
+    $content = ob_get_clean();
+    
+    include VIEWS_PATH . '/layouts/app.php';
+}
+
+function renderEngineBills(Auth $auth): void {
+    if (!$auth->isOwner()) {
+        header('Location: /dashboard');
+        exit;
+    }
+    
+    $title = 'Bill Modification';
+    $currentRoute = 'engine-bills';
+    $breadcrumbs = [
+        ['label' => 'Engine', 'href' => '/engine'],
+        ['label' => 'Bills']
+    ];
+    
+    ob_start();
+    include VIEWS_PATH . '/engine/bills.php';
+    $content = ob_get_clean();
+    
+    include VIEWS_PATH . '/layouts/app.php';
+}
+
+function renderEngineFinance(Auth $auth): void {
+    if (!$auth->isOwner()) {
+        header('Location: /dashboard');
+        exit;
+    }
+    
+    $handler = new \HotelOS\Handlers\EngineHandler();
+    $hotelSetup = $handler->getHotelSetup();
+    
+    $title = 'Financial Override';
+    $currentRoute = 'engine-finance';
+    $breadcrumbs = [
+        ['label' => 'Engine', 'href' => '/engine'],
+        ['label' => 'Finance']
+    ];
+    
+    ob_start();
+    include VIEWS_PATH . '/engine/finance.php';
+    $content = ob_get_clean();
+    
+    include VIEWS_PATH . '/layouts/app.php';
+}
+

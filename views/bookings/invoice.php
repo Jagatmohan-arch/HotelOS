@@ -23,6 +23,9 @@ $stay = $invoice['stay'];
 $charges = $invoice['charges'];
 $booking = $invoice['booking'];
 
+// Branding assets (logo, stamp, signature)
+$branding = $branding ?? [];
+
 // Print mode: 'a4' or 'thermal'
 $printMode = $_GET['mode'] ?? 'a4';
 ?>
@@ -56,21 +59,28 @@ $printMode = $_GET['mode'] ?? 'a4';
                 
                 <!-- Header - Hotel Info -->
                 <div class="invoice-header">
-                    <h1><?= strtoupper(htmlspecialchars($hotel['name'] ?? 'HOTEL')) ?></h1>
-                    <?php if (!empty($hotel['address'])): ?>
-                    <p class="hotel-address"><?= htmlspecialchars($hotel['address']) ?></p>
-                    <?php endif; ?>
-                    <p class="hotel-contact">
-                        <?php if (!empty($hotel['phone'])): ?>
-                        Tel: <?= htmlspecialchars($hotel['phone']) ?>
+                    <div class="header-content">
+                        <?php if (!empty($branding['logo'])): ?>
+                        <img src="<?= htmlspecialchars($branding['logo']) ?>" alt="Logo" class="hotel-logo">
                         <?php endif; ?>
-                        <?php if (!empty($hotel['email'])): ?>
-                        | Email: <?= htmlspecialchars($hotel['email']) ?>
-                        <?php endif; ?>
-                    </p>
-                    <?php if (!empty($hotel['gst_number'])): ?>
-                    <p class="hotel-gst">GSTIN: <?= htmlspecialchars($hotel['gst_number']) ?></p>
-                    <?php endif; ?>
+                        <div class="hotel-info">
+                            <h1><?= strtoupper(htmlspecialchars($hotel['name'] ?? 'HOTEL')) ?></h1>
+                            <?php if (!empty($hotel['address'])): ?>
+                            <p class="hotel-address"><?= htmlspecialchars($hotel['address']) ?></p>
+                            <?php endif; ?>
+                            <p class="hotel-contact">
+                                <?php if (!empty($hotel['phone'])): ?>
+                                Tel: <?= htmlspecialchars($hotel['phone']) ?>
+                                <?php endif; ?>
+                                <?php if (!empty($hotel['email'])): ?>
+                                | Email: <?= htmlspecialchars($hotel['email']) ?>
+                                <?php endif; ?>
+                            </p>
+                            <?php if (!empty($hotel['gst_number'])): ?>
+                            <p class="hotel-gst">GSTIN: <?= htmlspecialchars($hotel['gst_number']) ?></p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
                 </div>
                 
                 <!-- Invoice Title & Number -->
@@ -224,6 +234,12 @@ $printMode = $_GET['mode'] ?? 'a4';
                         <div class="signature-line">Guest Signature</div>
                     </div>
                     <div class="signature-box">
+                        <?php if (!empty($branding['signature'])): ?>
+                        <img src="<?= htmlspecialchars($branding['signature']) ?>" alt="Signature" class="signature-image">
+                        <?php endif; ?>
+                        <?php if (!empty($branding['stamp'])): ?>
+                        <img src="<?= htmlspecialchars($branding['stamp']) ?>" alt="Stamp" class="stamp-image">
+                        <?php endif; ?>
                         <div class="signature-line">For <?= htmlspecialchars($hotel['name'] ?? 'Hotel') ?></div>
                     </div>
                 </div>

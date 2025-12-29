@@ -250,4 +250,76 @@ class GuestHandler
         $data[8] = chr(ord($data[8]) & 0x3f | 0x80);
         return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
     }
+    
+    /**
+     * Update guest category (VIP, Blacklist, etc.)
+     * Manager+ only
+     * 
+     * @param int $id Guest ID
+     * @param string $category One of: regular, vip, corporate, government, blacklisted
+     * @param string|null $notes Optional note for category change
+     * @return array Success/error response
+     */
+    public function updateCategory(int $id, string $category, ?string $notes = null): array
+    {
+        $validCategories = ['regular', 'vip', 'corporate', 'government', 'blacklisted'];
+        
+        if (!in_array($category, $validCategories)) {
+            return ['success' => false, 'error' => 'Invalid category'];
+        }
+        
+        $guest = $this->getById($id);
+        if (!$guest) {
+            return ['success' => false, 'error' => 'Guest not found'];
+        }
+        
+        $oldCategory = $guest['category'];
+        
+        // Update category
+        $this->db->execute(
+            "UPDATE guests SET category = :category WHERE id = :id",
+            ['id' => $id, 'category' => $category]
+        );
+        
+        // Append note if provided
+        if ($notes) {
+            $timestamp = date('Y-m-d H:i');
+            $categoryNote = "[{$timestamp}] Category changed: {$oldCategory} → {$category}. Note: {$notes}";
+            $existingNotes = $guest['notes'] ?? '';
+            $newNotes = $existingNotes ? $existingNotes . "\n" . $categoryNote : $categoryNote;
+            
+            $this->db->execute(
+                "UPDATE guests SET notes = :notes WHERE id = :id",
+                ['id' => $id, 'notes' => $newNotes]
+            );
+        }
+        
+        // Log audit
+        $auth = \HotelOS\Core\Auth::getInstance();
+        $auth->logAudit(
+            'category_change',
+            'guest',
+            $id,
+            'Guest category updated',
+            ['category' => $oldCategory],
+            ['category' => $category]
+        );
+        
+        return ['success' => true, 'old_category' => $oldCategory, 'new_category' => $category];
+    }
+    
+    /**
+     * Get guest category badge info
+     */
+    public static function getCategoryBadge(string $category): array
+    {
+        return match($category) {
+            'vip' => ['label' => 'VIP', 'color' => 'amber', 'icon' => 'crown'],
+            'corporate' => ['label' => 'Corporate', 'color' => 'blue', 'icon' => 'building'],
+            'government' => ['label' => 'Govt', 'color' => 'purple', 'icon' => 'landmark'],
+            'blacklisted' => ['label' => '⚠️ BLACKLISTED', 'color' => 'red', 'icon' => 'ban'],
+            default => ['label' => 'Regular', 'color' => 'gray', 'icon' => 'user']
+        };
+    }
 }
+

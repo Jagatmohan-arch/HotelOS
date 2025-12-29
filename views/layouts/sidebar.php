@@ -98,7 +98,15 @@ $navItems = [
             ['route' => 'reports', 'label' => 'Occupancy', 'href' => '/reports/occupancy'],
         ]
     ],
-    // 9. Administration (Owner Only)
+    // 9. Refund Requests (Manager+ Only)
+    [
+        'route' => 'admin-refunds',
+        'label' => 'Refund Requests',
+        'icon' => 'receipt-refund',
+        'href' => '/admin/refunds',
+        'roles' => ['owner', 'manager'],
+    ],
+    // 10. Administration (Owner Only)
     [
         'route' => 'settings',
         'label' => 'Administration',

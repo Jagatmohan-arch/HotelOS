@@ -317,6 +317,9 @@ class BookingHandler
         // Calculate final amounts with GST using settings
         $taxableAmount = (float)$booking['room_total'] + $totalExtraCharges - (float)($booking['discount_amount'] ?? 0);
         
+        // Check for tax exemption flag
+        $isTaxExempt = !empty($booking['tax_exempt']);
+        
         // Dynamic GST Calculation
         $appConfig = require __DIR__ . '/../config/app.php';
         $gstThreshold = (float)($appConfig['gst']['threshold'] ?? 7500.00);
@@ -328,12 +331,20 @@ class BookingHandler
         $baseRate = (float)$booking['rate_per_night'];
         $gstRate = ($baseRate < $gstThreshold) ? $lowRate : $highRate;
         
-        $halfGst = $gstRate / 2;
-        
-        // CGST + SGST (same state) or IGST (different state)
-        $cgst = round($taxableAmount * ($halfGst / 100), 2);
-        $sgst = $cgst;
-        $totalTax = $cgst + $sgst;
+        // If tax exempt, set GST to 0
+        if ($isTaxExempt) {
+            $gstRate = 0;
+            $cgst = 0;
+            $sgst = 0;
+            $totalTax = 0;
+        } else {
+            $halfGst = $gstRate / 2;
+            
+            // CGST + SGST (same state) or IGST (different state)
+            $cgst = round($taxableAmount * ($halfGst / 100), 2);
+            $sgst = $cgst;
+            $totalTax = $cgst + $sgst;
+        }
         $grandTotal = $taxableAmount + $totalTax;
         
         // Update booking
@@ -378,8 +389,24 @@ class BookingHandler
         $guestHandler = new GuestHandler();
         $guestHandler->updateStayStats((int)$booking['guest_id'], $grandTotal);
         
-        // Audit Log
-        $this->auth->logAudit('check_out', 'booking', $id);
+        // Audit Log with financial diff tracking
+        $this->auth->logAudit(
+            'check_out', 
+            'booking', 
+            $id,
+            [
+                'paid_amount' => (float)$booking['paid_amount'],
+                'grand_total' => (float)($booking['grand_total'] ?? 0),
+                'extra_charges' => (float)($booking['extra_charges'] ?? 0),
+                'status' => $booking['status']
+            ],
+            [
+                'paid_amount' => (float)$booking['paid_amount'],
+                'grand_total' => $grandTotal,
+                'extra_charges' => $totalExtraCharges,
+                'status' => 'checked_out'
+            ]
+        );
         
         return [
             'success' => true,
@@ -416,6 +443,192 @@ class BookingHandler
         );
     }
     
+    /**
+     * Move guest to a different room during stay
+     * Creates historical record and triggers housekeeping
+     * 
+     * @param int $bookingId Booking to move
+     * @param int $newRoomId Target room ID
+     * @param string $reason Reason for move (maintenance, upgrade, etc.)
+     * @param string $rateAction keep_original | use_new_rate | custom
+     * @param float|null $customRate Custom rate if rateAction is 'custom'
+     * @param string|null $notes Additional notes
+     * @return array Result
+     */
+    public function moveRoom(
+        int $bookingId,
+        int $newRoomId,
+        string $reason = 'guest_request',
+        string $rateAction = 'keep_original',
+        ?float $customRate = null,
+        ?string $notes = null
+    ): array {
+        $tenantId = TenantContext::getId();
+        $userId = $this->auth->id() ?? 0;
+        
+        // Get current booking
+        $booking = $this->getById($bookingId);
+        if (!$booking) {
+            return ['success' => false, 'error' => 'Booking not found'];
+        }
+        
+        // Must be checked_in to move
+        if ($booking['status'] !== 'checked_in') {
+            return ['success' => false, 'error' => 'Guest must be checked in to move rooms'];
+        }
+        
+        $oldRoomId = (int)$booking['room_id'];
+        if ($oldRoomId === $newRoomId) {
+            return ['success' => false, 'error' => 'New room must be different from current room'];
+        }
+        
+        // Get old room details
+        $oldRoom = $this->db->queryOne(
+            "SELECT room_number FROM rooms WHERE id = :id",
+            ['id' => $oldRoomId]
+        );
+        
+        // Get new room details
+        $newRoom = $this->db->queryOne(
+            "SELECT r.*, rt.base_rate, rt.name as room_type_name 
+             FROM rooms r 
+             JOIN room_types rt ON r.room_type_id = rt.id 
+             WHERE r.id = :id AND r.tenant_id = :tenant_id",
+            ['id' => $newRoomId, 'tenant_id' => $tenantId],
+            enforceTenant: false
+        );
+        
+        if (!$newRoom) {
+            return ['success' => false, 'error' => 'New room not found'];
+        }
+        
+        // Check new room is available
+        if ($newRoom['status'] !== 'available') {
+            return ['success' => false, 'error' => 'New room is not available (status: ' . $newRoom['status'] . ')'];
+        }
+        
+        // Determine new rate
+        $oldRate = (float)$booking['rate_per_night'];
+        $newRate = match($rateAction) {
+            'use_new_rate' => (float)$newRoom['base_rate'],
+            'custom' => $customRate ?? $oldRate,
+            default => $oldRate  // keep_original
+        };
+        
+        // Validate reason
+        $validReasons = ['maintenance', 'upgrade', 'downgrade', 'guest_request', 'housekeeping', 'other'];
+        if (!in_array($reason, $validReasons)) {
+            $reason = 'other';
+        }
+        
+        // === BEGIN TRANSACTION ===
+        $this->db->beginTransaction();
+        
+        try {
+            // 1. Create historical record
+            $this->db->execute(
+                "INSERT INTO room_move_history 
+                 (tenant_id, booking_id, from_room_id, to_room_id, from_room_number, to_room_number,
+                  reason, notes, rate_action, old_rate, new_rate, moved_by)
+                 VALUES 
+                 (:tenant_id, :booking_id, :from_room, :to_room, :from_number, :to_number,
+                  :reason, :notes, :rate_action, :old_rate, :new_rate, :moved_by)",
+                [
+                    'tenant_id' => $tenantId,
+                    'booking_id' => $bookingId,
+                    'from_room' => $oldRoomId,
+                    'to_room' => $newRoomId,
+                    'from_number' => $oldRoom['room_number'] ?? 'N/A',
+                    'to_number' => $newRoom['room_number'],
+                    'reason' => $reason,
+                    'notes' => $notes,
+                    'rate_action' => $rateAction,
+                    'old_rate' => $oldRate,
+                    'new_rate' => $newRate,
+                    'moved_by' => $userId
+                ],
+                enforceTenant: false
+            );
+            
+            // 2. Update booking with new room and rate
+            $this->db->execute(
+                "UPDATE bookings SET 
+                 room_id = :new_room_id,
+                 rate_per_night = :new_rate
+                 WHERE id = :id",
+                [
+                    'id' => $bookingId,
+                    'new_room_id' => $newRoomId,
+                    'new_rate' => $newRate
+                ]
+            );
+            
+            // 3. Update old room: available but dirty (needs cleaning)
+            $this->db->execute(
+                "UPDATE rooms SET 
+                 status = 'available',
+                 housekeeping_status = 'dirty'
+                 WHERE id = :id",
+                ['id' => $oldRoomId]
+            );
+            
+            // 4. Update new room: occupied
+            $this->db->execute(
+                "UPDATE rooms SET 
+                 status = 'occupied',
+                 housekeeping_status = 'clean'
+                 WHERE id = :id",
+                ['id' => $newRoomId]
+            );
+            
+            // 5. Audit log with diff
+            $this->auth->logAudit(
+                'room_move',
+                'booking',
+                $bookingId,
+                [
+                    'room_id' => $oldRoomId,
+                    'room_number' => $oldRoom['room_number'] ?? 'N/A',
+                    'rate_per_night' => $oldRate
+                ],
+                [
+                    'room_id' => $newRoomId,
+                    'room_number' => $newRoom['room_number'],
+                    'rate_per_night' => $newRate,
+                    'reason' => $reason
+                ]
+            );
+            
+            $this->db->commit();
+            
+            return [
+                'success' => true,
+                'from_room' => $oldRoom['room_number'] ?? 'N/A',
+                'to_room' => $newRoom['room_number'],
+                'old_rate' => $oldRate,
+                'new_rate' => $newRate
+            ];
+            
+        } catch (\Throwable $e) {
+            $this->db->rollback();
+            return ['success' => false, 'error' => 'Move failed: ' . $e->getMessage()];
+        }
+    }
+    
+    /**
+     * Get room move history for a booking
+     */
+    public function getRoomMoveHistory(int $bookingId): array
+    {
+        return $this->db->query(
+            "SELECT rmh.*, u.first_name, u.last_name
+             FROM room_move_history rmh
+             LEFT JOIN users u ON rmh.moved_by = u.id
+             WHERE rmh.booking_id = :booking_id
+             ORDER BY rmh.moved_at DESC",
+            ['booking_id' => $bookingId]
+        );
+    }
     /**
      * Get today's arrivals (expected check-ins)
      */
@@ -570,4 +783,58 @@ class BookingHandler
         
         return ['success' => true];
     }
+    
+    /**
+     * Set tax exemption flag for a booking (Manager+ only)
+     * 
+     * @param int $id Booking ID
+     * @param bool $exempt True to exempt from GST
+     * @param string $reason Reason for exemption (required if exempt=true)
+     * @return array Success/error response
+     */
+    public function setTaxExempt(int $id, bool $exempt, string $reason = ''): array
+    {
+        // Validate reason if exempting
+        if ($exempt && strlen(trim($reason)) < 5) {
+            return ['success' => false, 'error' => 'Reason is required for tax exemption (min 5 chars)'];
+        }
+        
+        $booking = $this->getById($id);
+        if (!$booking) {
+            return ['success' => false, 'error' => 'Booking not found'];
+        }
+        
+        // Only allow for pending or checked_in bookings
+        if (!in_array($booking['status'], ['reserved', 'confirmed', 'checked_in'])) {
+            return ['success' => false, 'error' => 'Cannot modify tax exemption for completed bookings'];
+        }
+        
+        $oldValue = (bool)($booking['tax_exempt'] ?? false);
+        
+        $this->db->execute(
+            "UPDATE bookings SET tax_exempt = :exempt, tax_exempt_reason = :reason WHERE id = :id",
+            [
+                'id' => $id,
+                'exempt' => $exempt ? 1 : 0,
+                'reason' => $exempt ? trim($reason) : null
+            ]
+        );
+        
+        // Audit log
+        $this->auth->logAudit(
+            'tax_exempt_change',
+            'booking',
+            $id,
+            'Tax exemption changed',
+            ['tax_exempt' => $oldValue],
+            ['tax_exempt' => $exempt, 'reason' => $reason]
+        );
+        
+        return [
+            'success' => true,
+            'tax_exempt' => $exempt,
+            'reason' => $reason
+        ];
+    }
 }
+
