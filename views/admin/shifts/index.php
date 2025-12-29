@@ -23,8 +23,8 @@ $shifts = $handler->getAllClosedShifts(50);
         </div>
     </div>
 
-    <!-- Shifts List -->
-    <div class="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+    <!-- Shifts List (Desktop) -->
+    <div class="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden hidden md:block">
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
@@ -149,4 +149,8 @@ $shifts = $handler->getAllClosedShifts(50);
             </div>
         </div>
     </div>
+    </div>
 </div>
+
+<!-- Mobile View -->
+<?php include __DIR__ . '/mobile.php'; ?>

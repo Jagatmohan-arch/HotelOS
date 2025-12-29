@@ -16,7 +16,7 @@ $allRefunds = $allRefunds ?? [];
 $reasonCodes = $reasonCodes ?? [];
 ?>
 
-<div class="refunds-page animate-fadeIn" x-data="refundsPage()">
+<div class="refunds-page animate-fadeIn hidden md:block" x-data="refundsPage()">
     <!-- Page Header -->
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
@@ -351,3 +351,6 @@ function refundsPage() {
     cursor: not-allowed;
 }
 </style>
+
+<!-- Mobile View -->
+<?php include __DIR__ . '/mobile.php'; ?>

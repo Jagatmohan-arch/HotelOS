@@ -288,6 +288,58 @@ if (str_starts_with($requestUri, '/api/')) {
             exit;
         }
         
+        // ========== Room APIs (Phase 4) ==========
+
+        // POST /api/rooms/{id}/status - Update room status (Manager+)
+        if (preg_match('#^/api/rooms/(\d+)/status$#', $requestUri, $matches) && $requestMethod === 'POST') {
+            requireApiAuth();
+            if (!$auth->isManager()) { http_response_code(403); exit; }
+            
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $roomId = (int)$matches[1];
+            $status = $data['status'] ?? '';
+            
+            $validStatuses = ['available', 'maintenance', 'blocked'];
+            if (!in_array($status, $validStatuses)) {
+                echo json_encode(['success' => false, 'error' => 'Invalid status']);
+                exit;
+            }
+            
+            $db = \HotelOS\Core\Database::getInstance();
+            $db->execute(
+                "UPDATE rooms SET status = :status WHERE id = :id AND tenant_id = :tid",
+                ['status' => $status, 'id' => $roomId, 'tid' => \HotelOS\Core\TenantContext::getId()],
+                enforceTenant: false
+            );
+            
+            echo json_encode(['success' => true]);
+            exit;
+        }
+
+        // POST /api/rooms/{id}/housekeeping - Update housekeeping status
+        if (preg_match('#^/api/rooms/(\d+)/housekeeping$#', $requestUri, $matches) && $requestMethod === 'POST') {
+            requireApiAuth();
+            
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $roomId = (int)$matches[1];
+            $status = $data['status'] ?? ''; // clean, dirty
+            
+            if (!in_array($status, ['clean', 'dirty'])) {
+                echo json_encode(['success' => false, 'error' => 'Invalid status']);
+                exit;
+            }
+            
+            $db = \HotelOS\Core\Database::getInstance();
+            $db->execute(
+                "UPDATE rooms SET housekeeping_status = :status WHERE id = :id AND tenant_id = :tid",
+                ['status' => $status, 'id' => $roomId, 'tid' => \HotelOS\Core\TenantContext::getId()],
+                enforceTenant: false
+            );
+            
+            echo json_encode(['success' => true]);
+            exit;
+        }
+
         // ========== Booking APIs (Phase 3) ==========
         
         // GET /api/rooms/available?check_in=X&check_out=Y&room_type_id=Z

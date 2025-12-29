@@ -27,7 +27,7 @@ $statusConfig = [
 ];
 ?>
 
-<div class="rooms-page animate-fadeIn" x-data="roomsPage()">
+<div class="rooms-page animate-fadeIn hidden md:block" x-data="roomsPage()">
     <!-- Page Header -->
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
@@ -359,3 +359,11 @@ function roomsPage() {
     }
 }
 </script>
+
+<!-- Mobile View -->
+<?php 
+// Helper for mobile view to get unique floors
+$floors = array_unique(array_column($rooms, 'floor'));
+sort($floors);
+include __DIR__ . '/rooms/mobile.php'; 
+?>
