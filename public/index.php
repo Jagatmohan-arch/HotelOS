@@ -1412,6 +1412,15 @@ function handleSessionKill(Auth $auth): void
 }
 function handleLoginForm(Auth $auth): void
 {
+    // Rate limiting check
+    $rateLimiter = new \HotelOS\Core\RateLimiter();
+    $clientIP = \HotelOS\Core\RateLimiter::getClientIP();
+    
+    if ($rateLimiter->isRateLimited($clientIP, 'login')) {
+        header('Location: /login?error=rate_limited');
+        exit;
+    }
+    
     $loginType = $_POST['login_type'] ?? 'owner';
     
     // Staff PIN Login
@@ -1420,9 +1429,11 @@ function handleLoginForm(Auth $auth): void
         $result = $auth->attemptPIN($pin);
         
         if ($result['success']) {
+            $rateLimiter->clearAttempts($clientIP, 'login');
             header('Location: /dashboard');
             exit;
         } else {
+            $rateLimiter->recordAttempt($clientIP, 'login', false);
             $errorCode = 'invalid';
             if (str_contains($result['message'], 'locked')) {
                 $errorCode = 'locked';
@@ -1448,10 +1459,14 @@ function handleLoginForm(Auth $auth): void
     $result = $auth->attempt($email, $password);
     
     if ($result['success']) {
+        // Clear rate limit on successful login
+        $rateLimiter->clearAttempts($clientIP, 'login');
         // Redirect to dashboard on success
         header('Location: /dashboard');
         exit;
     } else {
+        // Record failed attempt
+        $rateLimiter->recordAttempt($clientIP, 'login', false);
         // Determine error type
         $errorCode = 'invalid';
         if (strpos($result['message'], 'locked') !== false) {
