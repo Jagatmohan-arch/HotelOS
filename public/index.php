@@ -1155,6 +1155,18 @@ try {
             renderReportsPage($auth);
             break;
         
+        case '/reports/police':
+            renderReportsPage($auth); // Uses tab parameter from query string
+            break;
+            
+        case '/reports/daily':
+            renderReportsPage($auth);
+            break;
+            
+        case '/reports/occupancy':
+            renderReportsPage($auth);
+            break;
+        
         // ========== Subscription ==========
         case '/subscription':
             renderSubscriptionPage($auth);
