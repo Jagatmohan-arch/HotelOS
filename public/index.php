@@ -997,6 +997,20 @@ try {
     // Route handling
     switch ($requestUri) {
         // ========== Auth Routes ==========
+        case '/register':
+            // Handle POST registration (form submission)
+            if ($requestMethod === 'POST') {
+                handleRegisterForm($auth);
+                exit;
+            }
+            // Redirect if already logged in
+            if ($auth->check()) {
+                header('Location: /dashboard');
+                exit;
+            }
+            renderRegisterPage($auth);
+            break;
+            
         case '/':
         case '/login':
             // Handle POST login (form submission)
@@ -1146,6 +1160,10 @@ try {
             renderSubscriptionPage($auth);
             break;
             
+        case '/subscription/trial-expired':
+            renderTrialExpiredPage($auth);
+            break;
+            
         // ========== Security / Sessions (Phase D) ==========
         case '/admin/security/sessions':
             renderSessionsPage($auth);
@@ -1237,6 +1255,22 @@ try {
             
         case '/admin/reports/daily':
             renderDailyReportPage($auth);
+            break;
+            
+        // ========== Legal Pages ==========
+        case '/terms':
+        case '/terms-of-service':
+            include VIEWS_PATH . '/legal/terms.php';
+            exit;
+            
+        case '/privacy':
+        case '/privacy-policy':
+            include VIEWS_PATH . '/legal/privacy.php';
+            exit;
+            
+        case '/forgot-password':
+            // TODO: Implement password reset flow
+            renderComingSoonPage($auth, 'Password Reset');
             break;
             
         default:
@@ -1378,7 +1412,29 @@ function handleSessionKill(Auth $auth): void
 }
 function handleLoginForm(Auth $auth): void
 {
-    // Get form data
+    $loginType = $_POST['login_type'] ?? 'owner';
+    
+    // Staff PIN Login
+    if ($loginType === 'staff' && !empty($_POST['pin'])) {
+        $pin = $_POST['pin'];
+        $result = $auth->attemptPIN($pin);
+        
+        if ($result['success']) {
+            header('Location: /dashboard');
+            exit;
+        } else {
+            $errorCode = 'invalid';
+            if (str_contains($result['message'], 'locked')) {
+                $errorCode = 'locked';
+            } elseif (str_contains($result['message'], 'deactivated')) {
+                $errorCode = 'inactive';
+            }
+            header('Location: /login?type=staff&error=' . $errorCode);
+            exit;
+        }
+    }
+    
+    // Owner Email/Password Login
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
     
@@ -1538,6 +1594,29 @@ function renderRoomsPage(Auth $auth): void
     $content = ob_get_clean();
     
     include VIEWS_PATH . '/layouts/app.php';
+}
+
+function renderTrialExpiredPage(Auth $auth): void
+{
+    $user = $auth->user();
+    $csrfToken = $auth->csrfToken();
+    
+    // Get tenant info
+    $db = \HotelOS\Core\Database::getInstance();
+    $tenant = $db->queryOne(
+        "SELECT name, trial_ends_at FROM tenants WHERE id = :id",
+        ['id' => $user['tenant_id']],
+        enforceTenant: false
+    );
+    
+    $title = 'Trial Expired';
+    $bodyClass = 'page-trial-expired';
+    
+    ob_start();
+    include VIEWS_PATH . '/subscription/trial_expired.php';
+    $content = ob_get_clean();
+    
+    include VIEWS_PATH . '/layouts/base.php';
 }
 
 function renderComingSoonPage(Auth $auth, string $feature): void
@@ -2422,5 +2501,77 @@ function renderEngineFinance(Auth $auth): void {
     $content = ob_get_clean();
     
     include VIEWS_PATH . '/layouts/app.php';
+}
+
+// ============================================
+// Registration Handler Functions
+// ============================================
+
+function renderRegisterPage(Auth $auth): void
+{
+    $error = null;
+    $csrfToken = $auth->csrfToken();
+    
+    if (isset($_GET['error'])) {
+        $error = match($_GET['error']) {
+            'exists' => 'This email is already registered. Please login instead.',
+            'invalid' => 'Invalid registration data. Please check all fields.',
+            'failed' => 'Registration failed. Please try again.',
+            default => 'An error occurred. Please try again.'
+        };
+    }
+    
+    $title = 'Register';
+    $bodyClass = 'page-register';
+    
+    ob_start();
+    include VIEWS_PATH . '/auth/register.php';
+    $content = ob_get_clean();
+    
+    include VIEWS_PATH . '/layouts/base.php';
+}
+
+function handleRegisterForm(Auth $auth): void
+{
+    // Get form data
+    $data = [
+        'hotel_name' => trim($_POST['hotel_name'] ?? ''),
+        'owner_first_name' => trim($_POST['owner_first_name'] ?? ''),
+        'owner_last_name' => trim($_POST['owner_last_name'] ?? ''),
+        'email' => trim($_POST['email'] ?? ''),
+        'phone' => trim($_POST['phone'] ?? ''),
+        'password' => $_POST['password'] ?? '',
+        'city' => trim($_POST['city'] ?? 'Mumbai'),
+        'state' => trim($_POST['state'] ?? 'Maharashtra')
+    ];
+    
+    // Initialize registration handler
+    $handler = new \HotelOS\Handlers\RegistrationHandler();
+    $result = $handler->registerOwner($data);
+    
+    if ($result['success']) {
+        // Auto-login the new owner
+        $loginResult = $auth->attempt($data['email'], $data['password']);
+        
+        if ($loginResult['success']) {
+            // Redirect to dashboard with welcome message
+            $_SESSION['flash_success'] = 'Welcome to HotelOS! Your 14-day free trial has started.';
+            header('Location: /dashboard');
+        } else {
+            // Registration succeeded but login failed - rare edge case
+            header('Location: /login?registered=1');
+        }
+    } else {
+        // Registration failed - redirect back with error
+        $errorCode = 'failed';
+        if (str_contains($result['message'], 'already registered')) {
+            $errorCode = 'exists';
+        } elseif (str_contains($result['message'], 'required')) {
+            $errorCode = 'invalid';
+        }
+        
+        header('Location: /register?error=' . $errorCode);
+    }
+    exit;
 }
 

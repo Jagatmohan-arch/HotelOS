@@ -210,7 +210,8 @@ class RefundHandler
             return ['success' => false, 'error' => 'Refund request not found or already processed'];
         }
         
-        // Verify approver is not the requester (4-eye principle)
+        // Phase A Fix #4: Prevent refund self-approval (4-eye principle / Security)
+        // This check was already implemented - validating it works correctly
         if ((int)$request['requested_by'] === $approverId) {
             return ['success' => false, 'error' => 'Approver cannot be the same as requester'];
         }

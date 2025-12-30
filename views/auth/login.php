@@ -77,62 +77,103 @@ $loginType = $_GET['type'] ?? 'owner';
             </div>
             <?php endif; ?>
             
-            <form method="POST" action="/login" class="login-form" autocomplete="off">
+            <form method="POST" action="/login" class="login-form" autocomplete="off" id="loginForm">
                 <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken) ?>">
                 <input type="hidden" name="login_type" value="<?= htmlspecialchars($loginType) ?>">
                 
-                <div class="input-group">
-                    <label for="operator_id">Operator ID</label>
-                    <div class="input-field">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="3" width="18" height="18" rx="2"/>
-                            <circle cx="12" cy="10" r="3"/>
-                            <path d="M7 21v-2a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"/>
-                        </svg>
-                        <input 
-                            type="text" 
-                            id="operator_id" 
-                            name="email" 
-                            placeholder="<?= $loginType === 'staff' ? 'staff@hotel.com' : 'owner@hotel.com' ?>"
-                            autocomplete="username"
-                            required
-                        >
+                <?php if ($loginType === 'staff'): ?>
+                    <!-- STAFF: 4-Digit PIN Login -->
+                    <input type="hidden" name="pin" id="pinInput" value="">
+                    
+                    <div class="pin-display">
+                        <div class="pin-dots">
+                            <div class="pin-dot" id="dot1"></div>
+                            <div class="pin-dot" id="dot2"></div>
+                            <div class="pin-dot" id="dot3"></div>
+                            <div class="pin-dot" id="dot4"></div>
+                        </div>
+                        <p class="pin-label">Enter Your 4-Digit PIN</p>
                     </div>
-                </div>
-                
-                <div class="input-group">
-                    <label for="password">Password</label>
-                    <div class="input-field">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                        </svg>
-                        <input 
-                            type="password" 
-                            id="password" 
-                            name="password" 
-                            placeholder="••••••••" 
-                            autocomplete="current-password" 
-                            required
-                        >
+                    
+                    <div class="pin-pad">
+                        <button type="button" class="pin-btn" data-num="1">1</button>
+                        <button type="button" class="pin-btn" data-num="2">2</button>
+                        <button type="button" class="pin-btn" data-num="3">3</button>
+                        <button type="button" class="pin-btn" data-num="4">4</button>
+                        <button type="button" class="pin-btn" data-num="5">5</button>
+                        <button type="button" class="pin-btn" data-num="6">6</button>
+                        <button type="button" class="pin-btn" data-num="7">7</button>
+                        <button type="button" class="pin-btn" data-num="8">8</button>
+                        <button type="button" class="pin-btn" data-num="9">9</button>
+                        <button type="button" class="pin-btn pin-btn-clear" data-action="clear">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                        </button>
+                        <button type="button" class="pin-btn" data-num="0">0</button>
+                        <button type="button" class="pin-btn pin-btn-back" data-action="back">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 11H6.83l3.58-3.59L9 6l-6 6 6 6 1.41-1.41L6.83 13H21z"/>
+                            </svg>
+                        </button>
                     </div>
-                </div>
-                
-                <div class="form-options">
-                    <label class="checkbox-wrap">
-                        <input type="checkbox" name="remember">
-                        <span class="checkmark"></span>
-                        <span>Remember me</span>
-                    </label>
-                    <a href="/forgot-password" class="link">Forgot password?</a>
-                </div>
-                
-                <button type="submit" class="submit-btn">
-                    <span>Sign In</span>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M5 12h14M12 5l7 7-7 7"/>
-                    </svg>
-                </button>
+                    
+                <?php else: ?>
+                    <!-- OWNER: Email + Password Login -->
+                    <div class="input-group">
+                        <label for="operator_id">Operator ID</label>
+                        <div class="input-field">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                                <circle cx="12" cy="10" r="3"/>
+                                <path d="M7 21v-2a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"/>
+                            </svg>
+                            <input 
+                                type="text" 
+                                id="operator_id" 
+                                name="email" 
+                                placeholder="owner@hotel.com"
+                                autocomplete="username"
+                                required
+                            >
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="password">Password</label>
+                        <div class="input-field">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                            </svg>
+                            <input 
+                                type="password" 
+                                id="password" 
+                                name="password" 
+                                placeholder="••••••••" 
+                                autocomplete="current-password" 
+                                required
+                            >
+                        </div>
+                    </div>
+                    
+                    <div class="form-options">
+                        <label class="checkbox-wrap">
+                            <input type="checkbox" name="remember">
+                            <span class="checkmark"></span>
+                            <span>Remember me</span>
+                        </label>
+                        <a href="/forgot-password" class="link">Forgot password?</a>
+                    </div>
+                    
+                    <button type="submit" class="submit-btn">
+                        <span>Sign In</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
+                    </button>
+                <?php endif; ?>
             </form>
             
             <div class="form-footer">
@@ -605,3 +646,149 @@ $loginType = $_GET['type'] ?? 'owner';
     }
 }
 </style>
+
+<script>
+// PIN Pad Functionality (only for staff login)
+if (document.getElementById('pinInput')) {
+    let currentPIN = '';
+    const pinInput = document.getElementById('pinInput');
+    const loginForm = document.getElementById('loginForm');
+    const dots = ['dot1', 'dot2', 'dot3', 'dot4'];
+    
+    // Handle PIN button clicks
+    document.querySelectorAll('.pin-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const num = btn.dataset.num;
+            const action = btn.dataset.action;
+            
+            if (num && currentPIN.length < 4) {
+                // Add digit
+                currentPIN += num;
+                updateDots();
+                
+                // Auto-submit when 4 digits entered
+                if (currentPIN.length === 4) {
+                    pinInput.value = currentPIN;
+                    setTimeout(() => {
+                        loginForm.submit();
+                    }, 200);
+                }
+            } else if (action === 'back') {
+                // Remove last digit
+                currentPIN = currentPIN.slice(0, -1);
+                updateDots();
+            } else if (action === 'clear') {
+                // Clear all
+                currentPIN = '';
+                updateDots();
+            }
+        });
+    });
+    
+    function updateDots() {
+        dots.forEach((dotId, index) => {
+            const dot = document.getElementById(dotId);
+            if (index < currentPIN.length) {
+                dot.classList.add('filled');
+            } else {
+                dot.classList.remove('filled');
+            }
+        });
+    }
+}
+</script>
+
+<style>
+/* PIN Pad Styles */
+.pin-display {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.pin-dots {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.pin-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.2);
+    background: transparent;
+    transition: all 0.2s;
+}
+
+.pin-dot.filled {
+    background: linear-gradient(135deg, #06b6d4, #8b5cf6);
+    border-color: #06b6d4;
+    box-shadow: 0 0 10px rgba(6, 182, 212, 0.4);
+}
+
+.pin-label {
+    color: rgba(255,255,255,0.5);
+    font-size: 0.85rem;
+}
+
+.pin-pad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    max-width: 280px;
+    margin: 0 auto;
+}
+
+.pin-btn {
+    aspect-ratio: 1;
+    min-height: 60px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    color: white;
+    font-size: 1.5rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pin-btn:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(6, 182, 212, 0.3);
+    transform: translateY(-2px);
+}
+
+.pin-btn:active {
+    transform: translateY(0);
+    background: rgba(255,255,255,0.12);
+}
+
+.pin-btn-clear,
+.pin-btn-back {
+    background: rgba(239, 68, 68, 0.08);
+    font-size: 1rem;
+}
+
+.pin-btn-clear:hover,
+.pin-btn-back:hover {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+@media (max-width: 380px) {
+    .pin-pad {
+        gap: 8px;
+    }
+    
+    .pin-btn {
+        min-height: 50px;
+        font-size: 1.2rem;
+    }
+}
+</style>
+

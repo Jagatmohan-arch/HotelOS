@@ -209,12 +209,101 @@ $roomTypes = $roomTypes ?? [];
             </div>
         </div>
         
-        <div class="form-row">
-            <div class="form-group">
-                <label for="advance_amount">Advance Payment (₹)</label>
+        <!-- Visual Payment Selection -->
+        <h3 class="section-subtitle">Payment Details</h3>
+        <div class="payment-section">
+            <div class="form-group mb-4">
+                <label>Advance Payment (₹)</label>
                 <input type="number" id="advance_amount" name="advance_amount" class="form-input form-input--lg" value="0" min="0" step="100">
             </div>
-            <div class="form-group">
+            
+            <label class="mb-2 block text-sm font-medium text-slate-300">Payment Mode</label>
+            <div class="payment-method-grid">
+                <div class="payment-tile selected" onclick="selectPaymentMode('cash')">
+                    <i data-lucide="banknote"></i>
+                    <span>Cash</span>
+                </div>
+                <div class="payment-tile" onclick="selectPaymentMode('upi')">
+                    <i data-lucide="qr-code"></i>
+                    <span>UPI / Scan</span>
+                </div>
+                <div class="payment-tile" onclick="selectPaymentMode('card')">
+                    <i data-lucide="credit-card"></i>
+                    <span>Card</span>
+                </div>
+                <div class="payment-tile" onclick="selectPaymentMode('bank_transfer')">
+                    <i data-lucide="building"></i>
+                    <span>Bank / Net</span>
+                </div>
+                <div class="payment-tile" onclick="selectPaymentMode('ota_prepaid')">
+                    <i data-lucide="globe"></i>
+                    <span>OTA Prepaid</span>
+                </div>
+                <div class="payment-tile" onclick="selectPaymentMode('credit')">
+                    <i data-lucide="briefcase"></i>
+                    <span>Bill to Co.</span>
+                </div>
+            </div>
+            
+            <input type="hidden" id="payment_mode" name="payment_mode" value="cash">
+            
+            <div class="form-group mt-4">
+                <label for="payment_reference">Reference / Transaction ID</label>
+                <input type="text" id="payment_reference" name="payment_reference" class="form-input" placeholder="e.g. UPI Ref, Cheque No, Company Name">
+            </div>
+        </div>
+        <script>
+            function selectPaymentMode(mode) {
+                document.querySelectorAll('.payment-tile').forEach(el => el.classList.remove('selected'));
+                event.currentTarget.classList.add('selected');
+                document.getElementById('payment_mode').value = mode;
+                
+                // Auto-focus reference if not cash
+                if (mode !== 'cash') {
+                    document.getElementById('payment_reference').focus();
+                }
+            }
+        </script>
+        
+        <style>
+            .payment-method-grid {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 10px;
+            }
+            .payment-tile {
+                background: rgba(15, 23, 42, 0.6);
+                border: 1px solid rgba(148, 163, 184, 0.2);
+                border-radius: 8px;
+                padding: 15px 10px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 8px;
+                cursor: pointer;
+                transition: all 0.2s;
+                text-align: center;
+                font-size: 0.9rem;
+                color: #94a3b8;
+            }
+            .payment-tile:hover {
+                background: rgba(15, 23, 42, 0.9);
+                border-color: #22d3ee;
+            }
+            .payment-tile.selected {
+                background: rgba(34, 211, 238, 0.15);
+                border-color: #22d3ee;
+                color: #22d3ee;
+                box-shadow: 0 0 10px rgba(34, 211, 238, 0.1);
+            }
+            .payment-tile i {
+                width: 24px;
+                height: 24px;
+            }
+        </style>
+        
+        <div class="form-row">
+            <div class="form-group form-group--full">
                 <label for="special_requests">Special Requests</label>
                 <textarea id="special_requests" name="special_requests" class="form-input" rows="2" placeholder="Early check-in, extra bed, etc."></textarea>
             </div>
@@ -776,6 +865,8 @@ async function createBooking() {
         children: document.getElementById('children').value,
         source: document.getElementById('source').value,
         advance_amount: document.getElementById('advance_amount').value,
+        payment_mode: document.getElementById('payment_mode').value,
+        payment_reference: document.getElementById('payment_reference').value,
         special_requests: document.getElementById('special_requests').value,
     };
     

@@ -7,9 +7,9 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
     
-    # Force HTTPS (uncomment if needed)
-    # RewriteCond %{HTTPS} off
-    # RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+    # Force HTTPS (Security: Phase A Fix #2)
+    RewriteCond %{HTTPS} off
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
     
     # Route /assets/ to /public/assets/ (for MilesWeb compatibility)
     RewriteRule ^assets/(.*)$ public/assets/$1 [L,NC]

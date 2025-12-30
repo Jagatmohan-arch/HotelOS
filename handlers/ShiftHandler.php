@@ -68,7 +68,12 @@ class ShiftHandler
      * Calculate expected cash for the current shift
      * Logic: Opening Cash + Total Cash Transactions + Ledger Additions - Ledger Expenses
      */
-    public function getExpectedCash(int $userId, int $shiftId, string $startTime): float
+    /**
+     * Calculate expected cash for the current shift
+     * Logic: Opening Cash + Total Cash Transactions + Ledger Additions - Ledger Expenses
+     * @param string|null $endTime Optional end time for historical verification
+     */
+    public function getExpectedCash(int $userId, int $shiftId, string $startTime, ?string $endTime = null): float
     {
         $tenantId = TenantContext::getId();
 
@@ -78,8 +83,21 @@ class ShiftHandler
             ['id' => $shiftId]
         );
         $opening = (float)($shift['opening_cash'] ?? 0);
+        
+        // Prepare query conditions
+        $timeCondition = "AND collected_at >= :start_time";
+        $params = [
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'start_time' => $startTime
+        ];
+        
+        if ($endTime) {
+            $timeCondition .= " AND collected_at <= :end_time";
+            $params['end_time'] = $endTime;
+        }
 
-        // Get all CASH transactions collected by this user since shift start
+        // Get all CASH transactions collected by this user within shift window
         $txns = $this->db->queryOne(
             "SELECT 
                 SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END) as total_in,
@@ -87,13 +105,9 @@ class ShiftHandler
              FROM transactions 
              WHERE tenant_id = :tenant_id 
              AND collected_by = :user_id 
-             AND payment_mode = 'cash'
-             AND collected_at >= :start_time",
-            [
-                'tenant_id' => $tenantId,
-                'user_id' => $userId,
-                'start_time' => $startTime
-            ],
+             AND ledger_type = 'cash_drawer'
+             $timeCondition",
+            $params,
             enforceTenant: false
         );
 
@@ -161,13 +175,43 @@ class ShiftHandler
      */
     public function endShift(int $shiftId, int $userId, float $closingCash, ?int $handoverTo, ?string $notes): array
     {
+        $tenantId = TenantContext::getId();
+        
+        // Get shift details (check any status, not just OPEN)
         $shift = $this->db->queryOne(
-            "SELECT * FROM shifts WHERE id = :id AND user_id = :user_id AND status = 'OPEN'",
-            ['id' => $shiftId, 'user_id' => $userId]
+            "SELECT * FROM shifts WHERE id = :id AND tenant_id = :tenant_id",
+            ['id' => $shiftId, 'tenant_id' => $tenantId],
+            enforceTenant: false
         );
 
         if (!$shift) {
-            return ['success' => false, 'message' => 'Active shift not found.'];
+            return ['success' => false, 'message' => 'Shift not found.'];
+        }
+        
+        // Phase D: Shift Immutability Protection (Financial Security)
+        // Prevent modification of already closed shifts to stop fraud
+        if ($shift['status'] === 'CLOSED') {
+            // Log the attempted modification for owner review
+            $auth = \HotelOS\Core\Auth::getInstance();
+            $auth->logAudit(
+                'shift_modification_blocked',
+                'shifts',
+                $shiftId,
+                ['status' => 'CLOSED', 'closing_cash' => $shift['closing_cash']],
+                ['attempted_by' => $userId, 'reason' => 'Shift already closed - immutable']
+            );
+            
+            return [
+                'success' => false, 
+                'message' => 'This shift is already closed and cannot be modified. Contact owner if correction needed.',
+                'shift_id' => $shiftId,
+                'closed_at' => $shift['shift_end_at']
+            ];
+        }
+        
+        // Verify user owns this shift
+        if ((int)$shift['user_id'] !== $userId) {
+            return ['success' => false, 'message' => 'You can only close your own shift.'];
         }
 
         // Calculate expected

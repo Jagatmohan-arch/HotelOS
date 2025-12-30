@@ -181,6 +181,7 @@ class PoliceReportHandler
         return $text;
     }
     
+    
     /**
      * Get report statistics for dashboard
      */
@@ -192,7 +193,7 @@ class PoliceReportHandler
              LEFT JOIN police_reports pr ON DATE(b.actual_check_in) = pr.report_date
              WHERE b.actual_check_in IS NOT NULL
              AND (pr.id IS NULL OR pr.status = 'pending')
-             AND DATE(b.actual_check_in) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)"
+             AND DATE(b.actual_check_in)>= DATE_SUB(CURDATE(), INTERVAL 7 DAY)"
         );
         
         $today = $this->db->queryOne(
@@ -206,4 +207,111 @@ class PoliceReportHandler
             'today_checkins' => (int)($today['count'] ?? 0)
         ];
     }
+    
+    /**
+     * Phase F: Generate PDF Police Report
+     * Creates official police report PDF for submission to authorities
+     * 
+     * @param string $date Report date (YYYY-MM-DD)
+     * @return void Outputs PDF directly
+     */
+    public function generatePoliceReportPDF(string $date): void
+    {
+        require_once BASE_PATH . '/core/PDFGenerator.php';
+        $data = $this->getReportByDate($date);
+        
+        $html = $this->buildPoliceReportHTML($data);
+        \HotelOS\Utils\PDFGenerator::generateFromHTML(
+            $html,
+            'Police_Report_' . $date,
+            true // download
+        );
+    }
+    
+    /**
+     * Build HTML for police report PDF
+     */
+    private function buildPoliceReportHTML(array $data): string
+    {
+        $tenant = $this->db->queryOne(
+            "SELECT * FROM tenants WHERE id = :id",
+            ['id' => \HotelOS\Core\TenantContext::getId()],
+            enforceTenant: false
+        );
+        
+        $reportDate = date('d-M-Y', strtotime($data['date']));
+        
+        $guestsHTML = '';
+        foreach ($data['guests'] as $index => $guest) {
+            $guestsHTML .= "
+            <tr>
+                <td>" . ($index + 1) . "</td>
+                <td>{$guest['first_name']} {$guest['last_name']}</td>
+                <td>{$guest['phone']}</td>
+                <td>" . strtoupper($guest['id_type'] ?? 'N/A') . "</td>
+                <td>{$guest['id_number']}</td>
+                <td>{$guest['room_number']}</td>
+                <td>" . date('d-M-Y', strtotime($guest['check_in_date'])) . "</td>
+                <td>" . date('d-M-Y', strtotime($guest['check_out_date'])) . "</td>
+                <td>{$guest['city']}, {$guest['state']}</td>
+            </tr>";
+        }
+        
+        return <<<HTML
+<div class="invoice-container">
+    <!-- Header -->
+    <div class="header" style="text-align: center;">
+        <div class="hotel-name">POLICE GUEST REPORT</div>
+        <div style="font-size: 11pt; margin-top: 10px;"><strong>{$tenant['name']}</strong></div>
+        <div style="font-size: 9pt;">{$tenant['address']}, {$tenant['city']}, {$tenant['state']} - {$tenant['pincode']}</div>
+        <div style="font-size: 9pt;">Phone: {$tenant['phone']} | GSTIN: {$tenant['gst_number']}</div>
+    </div>
+    
+    <div style="margin: 20px 0; padding: 10px; background: #f5f5f5; border-left: 4px solid #0f172a;">
+        <strong>Report Date:</strong> {$reportDate}<br>
+        <strong>Total Guests:</strong> {$data['guest_count']}<br>
+        <strong>Generated:</strong> " . date('d-M-Y H:i:s') . "
+    </div>
+    
+    <!-- Guest List -->
+    <table class="items-table" style="font-size: 9pt;">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Guest Name</th>
+                <th>Phone</th>
+                <th>ID Type</th>
+                <th>ID Number</th>
+                <th>Room</th>
+                <th>Check-in</th>
+                <th>Check-out</th>
+                <th>Address</th>
+            </tr>
+        </thead>
+        <tbody>
+            {$guestsHTML}
+        </tbody>
+    </table>
+    
+    <!-- Footer -->
+    <div style="margin-top: 40px; padding-top: 15px; border-top: 1px solid #ccc;">
+        <div style="float: left; width: 50%;">
+            <p><strong>Authorized Signatory</strong></p>
+            <p style="margin-top: 40px;">____________________</p>
+            <p style="font-size: 9pt;">({$tenant['name']})</p>
+        </div>
+        <div style="float: right; width: 50%; text-align: right;">
+            <p><strong>Police Station Stamp</strong></p>
+            <p style="margin-top: 40px; border: 1px dashed #999; height: 60px; width: 150px; display: inline-block;"></p>
+        </div>
+        <div style="clear: both;"></div>
+    </div>
+    
+    <div class="footer" style="text-align: center; margin-top: 30px;">
+        <p style="font-size: 8pt; color: #666;">This is a computer-generated report. For official use only.</p>
+    </div>
+</div>
+HTML;
+    }
 }
+

@@ -28,10 +28,11 @@ jobs:
         run: |
           # Create lftp script
           cat > deploy.lftp << 'SCRIPT'
-          set ftp:ssl-allow no
+          set ftp:ssl-allow yes
+          set ssl:verify-certificate no
           set ftp:passive-mode yes
-          set net:timeout 180
-          set net:max-retries 10
+          set net:timeout 60
+          set net:max-retries 5
           set net:reconnect-interval-base 10
           set net:limit-rate 0
           

@@ -238,6 +238,102 @@ class Auth
     }
 
     /**
+     * Attempt to authenticate staff user with 4-digit PIN
+     * 
+     * @param string $pin 4-digit PIN
+     * @return array ['success' => bool, 'message' => string, 'user' => ?array]
+     */
+    public function attemptPIN(string $pin): array
+    {
+        // Validate PIN format (exactly 4 digits)
+        if (!preg_match('/^\d{4}$/', $pin)) {
+            return [
+                'success' => false,
+                'message' => 'Invalid PIN format. Must be 4 digits.',
+                'user'    => null,
+            ];
+        }
+
+        // Find user by PIN hash (no tenant filter - PIN is unique)
+        $user = $this->db->queryOne(
+            "SELECT u.*, t.name as tenant_name, t.status as tenant_status 
+             FROM users u 
+             JOIN tenants t ON u.tenant_id = t.id 
+             WHERE u.pin_hash IS NOT NULL",
+            [],
+            enforceTenant: false
+        );
+
+        // Try to find matching PIN by verifying all users with PIN
+        // (We can't query by hash since we need to verify)
+        $users = $this->db->query(
+            "SELECT u.*, t.name as tenant_name, t.status as tenant_status 
+             FROM users u 
+             JOIN tenants t ON u.tenant_id = t.id 
+             WHERE u.pin_hash IS NOT NULL 
+             AND u.is_active = 1 
+             AND t.status = 'active'",
+            [],
+            enforceTenant: false
+        );
+
+        $matchedUser = null;
+        foreach ($users as $u) {
+            if (password_verify($pin, $u['pin_hash'])) {
+                $matchedUser = $u;
+                break;
+            }
+        }
+
+        if (!$matchedUser) {
+            // Log failed attempt (for rate limiting)
+            error_log("Failed PIN attempt: {$pin} from IP: " . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+            
+            return [
+                'success' => false,
+                'message' => 'Invalid PIN.',
+                'user'    => null,
+            ];
+        }
+
+        // Check if account is locked
+        if ($this->isAccountLocked($matchedUser)) {
+            return [
+                'success' => false,
+                'message' => 'Account is temporarily locked. Please try again later.',
+                'user'    => null,
+            ];
+        }
+
+        // Check if user is active
+        if (!$matchedUser['is_active']) {
+            return [
+                'success' => false,
+                'message' => 'Your account has been deactivated.',
+                'user'    => null,
+            ];
+        }
+
+        // Check if tenant is active
+        if ($matchedUser['tenant_status'] !== 'active') {
+            return [
+                'success' => false,
+                'message' => 'Your hotel subscription is inactive.',
+                'user'    => null,
+            ];
+        }
+
+        // Successful PIN login
+        $this->loginUser($matchedUser);
+
+        return [
+            'success' => true,
+            'message' => 'Login successful.',
+            'user'    => $this->sanitizeUser($matchedUser),
+        ];
+    }
+
+    /**
      * Process successful login
      */
     private function loginUser(array $user): void
@@ -281,35 +377,33 @@ class Auth
      */
     public function logout(): void
     {
-        // Phase F1: Prevent logout if shift is OPEN
-        // We need to instantiate ShiftHandler here or check DB directly.
-        // To avoid circular dependency inject, we'll use DB directly or include handler if strictly needed.
-        // It's cleaner to query DB here to be lightweight.
-        
+        // Phase F1: HARD ENFORCEMENT - Prevent logout if shift is OPEN
         if ($this->user && defined('USE_DB_SESSIONS') && \USE_DB_SESSIONS) {
             // Check for open shift
             $openShift = $this->db->queryOne(
-                "SELECT id FROM shifts WHERE user_id = :uid AND status = 'OPEN' AND tenant_id = :tid",
+                "SELECT id, shift_start_at, opening_cash FROM shifts 
+                 WHERE user_id = :uid 
+                 AND status = 'OPEN' 
+                 AND tenant_id = :tid",
                 ['uid' => $this->user['id'], 'tid' => $this->user['tenant_id']],
                 enforceTenant: false
             );
             
             if ($openShift) {
-                // We cannot stop the flow easily here if called via GET /logout link
-                // But usually we should redirect or show error.
-                // The prompt was "Cannot logout".
-                // Since logout is an action, we can return false or redirect with error?
-                // But logout is void.
-                // I will assume the UI handles the "Locked" message (I added a text "You cannot logout.." in UI).
-                // But hard enforcement is requested.
-                // If I throw Exception, it might break execution.
-                // Best approach: In `handleLogoutApi` or the controller, check this.
-                // But `Auth::logout` is the core.
+                // CRITICAL: Block logout completely to enforce cash accountability
+                $shiftStart = date('d-M-Y H:i', strtotime($openShift['shift_start_at']));
+                $message = "Cannot logout with open shift. Your shift started at {$shiftStart}. Please close your shift first.";
                 
-                // For now, I will NOT block it here because `logout` might be called by `logoutAllDevices` (Owner force kill).
-                // Owner killing session should NOT be blocked by open shift.
-                // The User clicking "Logout" is the use case.
-                // That happens in `public/index.php` -> `/logout` route.
+                // Log the failed logout attempt for audit
+                $this->logAudit(
+                    'logout_blocked_open_shift', 
+                    'shift', 
+                    $openShift['id'],
+                    null,
+                    ['shift_id' => $openShift['id'], 'reason' => 'Attempted logout with unclosed shift']
+                );
+                
+                throw new \Exception($message);
             }
             
             $this->logAudit('logout', 'user', $this->user['id']);

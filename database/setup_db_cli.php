@@ -1,24 +1,23 @@
 <?php
-// Database Setup / Migration Script
-// Access via /setup_db.php?key=hotelos_setup_2024
+// Database Setup / Migration Script (CLI Only)
+// Usage: php database/setup_db_cli.php
 
-require_once __DIR__ . '/../public/index_shift_append.php'; // For context if needed, but actually we need basic db
+if (php_sapi_name() !== 'cli') {
+    die('Access Denied: CLI only.');
+}
+
 require_once __DIR__ . '/../core/Database.php';
 require_once __DIR__ . '/../config/app.php';
 
 use HotelOS\Core\Database;
 
-$secretKey = 'hotelos_setup_2024';
-if (($_GET['key'] ?? '') !== $secretKey) {
-    die('Access Denied');
-}
-
-echo "<h1>Database Setup</h1>";
+echo "Starting Database Setup...\n";
 
 try {
     $db = Database::getInstance();
     
     // 1. Create Shifts Table
+    echo "Checking 'shifts' table... ";
     $db->execute("
         CREATE TABLE IF NOT EXISTS `shifts` (
             `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -44,9 +43,10 @@ try {
             INDEX `idx_shifts_status` (`status`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ");
-    echo "✅ Checked/Created 'shifts' table.<br>";
+    echo "✅ Done.\n";
     
     // 2. Create Cash Ledger Table
+    echo "Checking 'cash_ledger' table... ";
     $db->execute("
         CREATE TABLE IF NOT EXISTS `cash_ledger` (
             `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -63,29 +63,27 @@ try {
             INDEX `idx_ledger_shift` (`shift_id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ");
-    echo "✅ Checked/Created 'cash_ledger' table.<br>";
+    echo "✅ Done.\n";
     
     // 3. Add Missing Columns to Bookings (if needed)
-    // check_in_time, check_out_time
+    echo "Checking 'bookings' schema... \n";
     $columns = $db->query("SHOW COLUMNS FROM bookings LIKE 'check_in_time'");
     if (empty($columns)) {
         $db->execute("ALTER TABLE bookings ADD COLUMN `check_in_time` TIME DEFAULT '14:00:00' AFTER `check_out_date`");
-        echo "✅ Added 'check_in_time' to bookings.<br>";
-    } else {
-        echo "ℹ️ 'check_in_time' already exists.<br>";
+        echo "  - Added 'check_in_time'.\n";
     }
     
     $columns = $db->query("SHOW COLUMNS FROM bookings LIKE 'check_out_time'");
     if (empty($columns)) {
         $db->execute("ALTER TABLE bookings ADD COLUMN `check_out_time` TIME DEFAULT '11:00:00' AFTER `check_in_time`");
-        echo "✅ Added 'check_out_time' to bookings.<br>";
-    } else {
-        echo "ℹ️ 'check_out_time' already exists.<br>";
+        echo "  - Added 'check_out_time'.\n";
     }
+    echo "✅ Done.\n";
 
-    echo "<h3>Setup Complete</h3>";
+    echo "\nSetup Complete Successfully.\n";
     
 } catch (Exception $e) {
-    echo "❌ Error: " . $e->getMessage();
-    echo "<pre>" . $e->getTraceAsString() . "</pre>";
+    echo "❌ Error: " . $e->getMessage() . "\n";
+    echo $e->getTraceAsString() . "\n";
+    exit(1);
 }

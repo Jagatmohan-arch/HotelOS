@@ -132,67 +132,37 @@ class InvoiceHandler
     
     /**
      * Record a payment transaction
+     * CRITICAL FIX: Delegates to PaymentHandler to ensure ledger_type is set
+     * 
+     * @deprecated Use PaymentHandler::recordPayment() directly
+     * @param int $bookingId Booking ID
+     * @param float $amount Payment amount
+     * @param string $method Payment method (cash, upi, card, etc)
+     * @param string|null $reference Optional reference number
+     * @return int Transaction ID
+     * @throws \Exception if payment fails
      */
     public function recordPayment(int $bookingId, float $amount, string $method, ?string $reference = null): int
     {
-        $tenantId = TenantContext::getId();
-        
-        // Insert transaction
-        $this->db->execute(
-            "INSERT INTO transactions (tenant_id, booking_id, type, amount, method, reference, collected_at)
-             VALUES (:tenant_id, :booking_id, 'credit', :amount, :method, :reference, NOW())",
-            [
-                'tenant_id' => $tenantId,
-                'booking_id' => $bookingId,
-                'amount' => $amount,
-                'method' => $method,
-                'reference' => $reference
-            ],
-            enforceTenant: false
-        );
-        
-        $transactionId = $this->db->lastInsertId();
-        
-        // Fetch old state for audit
-        $oldBooking = $this->db->queryOne(
-            "SELECT * FROM bookings WHERE id = :id",
-            ['id' => $bookingId]
-        );
-
-        // Update booking paid amount
-        $this->db->execute(
-            "UPDATE bookings SET 
-             paid_amount = paid_amount + :amount,
-             payment_status = CASE 
-                 WHEN paid_amount + :amount2 >= grand_total THEN 'paid'
-                 ELSE 'partial'
-             END
-             WHERE id = :id",
-            ['id' => $bookingId, 'amount' => $amount, 'amount2' => $amount]
-        );
-        
-        // Fetch new state for audit
-        $newBooking = $this->db->queryOne(
-            "SELECT * FROM bookings WHERE id = :id",
-            ['id' => $bookingId]
-        );
-        
-        // Log Audit
-        \HotelOS\Core\Auth::logAudit(
-            'payment_collected',
-            'booking',
+        // Delegate to PaymentHandler which handles:
+        // 1. Transaction insert with ledger_type (cash_drawer, bank, ota, credit)
+        // 2. Booking paid_amount update with atomicity
+        // 3. Audit logging
+        $paymentHandler = new PaymentHandler();
+        $result = $paymentHandler->recordPayment(
             $bookingId,
-            [
-                'paid_amount' => $oldBooking['paid_amount'],
-                'payment_status' => $oldBooking['payment_status']
-            ],
-            [
-                'paid_amount' => $newBooking['paid_amount'],
-                'payment_status' => $newBooking['payment_status']
-            ]
+            $amount,
+            $method,
+            $reference,
+            'Payment via Invoice Handler', // notes
+            null // collected_by (will use Auth::id())
         );
         
-        return $transactionId;
+        if (!$result['success']) {
+            throw new \Exception($result['error'] ?? 'Payment failed');
+        }
+        
+        return (int)$result['transaction_id'];
     }
     
     /**
@@ -204,6 +174,7 @@ class InvoiceHandler
         $out = new \DateTime($checkOut);
         return max(1, (int)$in->diff($out)->days);
     }
+    
     
     /**
      * Format address from booking data
@@ -219,4 +190,164 @@ class InvoiceHandler
         ]);
         return implode(', ', $parts);
     }
+    
+    /**
+     * Phase F: Generate PDF Invoice
+     * Creates professional GST-compliant invoice PDF
+     * 
+     * @param int $bookingId Booking ID
+     * @return void Outputs PDF directly
+     */
+    public function generateInvoicePDF(int $bookingId): void
+    {
+        require_once BASE_PATH . '/core/PDFGenerator.php';
+        $data = $this->getInvoiceData($bookingId);
+        
+        if (!$data) {
+            die('Invoice not found');
+        }
+        
+        $html = $this->buildInvoiceHTML($data);
+        \HotelOS\Utils\PDFGenerator::generateFromHTML(
+            $html,
+            $data['invoice_number'],
+            true // download
+        );
+    }
+    
+    /**
+     * Build HTML for invoice PDF
+     */
+    private function buildInvoiceHTML(array $data): string
+    {
+        $invoice = $data;
+        $hotel = $data['hotel'];
+        $guest = $data['guest'];
+        $charges = $data['charges'];
+        $stay = $data['stay'];
+        
+        $amountInWords = \HotelOS\Utils\PDFGenerator::numberToWords($charges['grand_total']);
+        
+        return <<<HTML
+<div class="invoice-container">
+    <!-- Header -->
+    <div class="header">
+        <div class="hotel-name">{$hotel['name']}</div>
+        <div style="font-size: 9pt;">{$hotel['address']}, {$hotel['city']}, {$hotel['state']} - {$hotel['pincode']}</div>
+        <div style="font-size: 9pt;">Phone: {$hotel['phone']} | Email: {$hotel['email']}</div>
+        <div style="font-size: 9pt;"><strong>GSTIN:</strong> {$hotel['gst_number']}</div>
+    </div>
+    
+    <div class="invoice-title">TAX INVOICE</div>
+    
+    <!-- Invoice & Billing Details -->
+    <table class="info-table">
+        <tr>
+            <td width="50%">
+                <strong>Invoice To:</strong><br>
+                {$guest['name']}<br>
+                {$guest['address']}<br>
+                Phone: {$guest['phone']}<br>
+                Email: {$guest['email']}
+                " . ($guest['gstin'] ? "<br><strong>GSTIN:</strong> {$guest['gstin']}" : "") . "
+            </td>
+            <td width="50%" style="text-align: right;">
+                <strong>Invoice No:</strong> {$invoice['invoice_number']}<br>
+                <strong>Date:</strong> " . date('d-M-Y') . "<br>
+                <strong>Booking No:</strong> {$invoice['booking']['booking_number']}<br>
+                <strong>Room:</strong> {$data['room']['number']} ({$data['room']['type']})<br>
+            </td>
+        </tr>
+    </table>
+    
+    <!-- Stay Details -->
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Description</th>
+                <th class="text-center">Qty</th>
+                <th class="text-right">Rate</th>
+                <th class="text-right">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>1</td>
+                <td>
+                    <strong>Room Charges</strong><br>
+                    Check-in: " . date('d-M-Y', strtotime($stay['check_in'])) . "<br>
+                    Check-out: " . date('d-M-Y', strtotime($stay['check_out'])) . "<br>
+                    Guests: {$stay['adults']} Adults, {$stay['children']} Children
+                </td>
+                <td class="text-center">{$stay['nights']} Night(s)</td>
+                <td class="text-right">₹ " . number_format($charges['room_rate'], 2) . "</td>
+                <td class="text-right">₹ " . number_format($charges['room_total'], 2) . "</td>
+            </tr>
+            " . ($charges['extra'] > 0 ? "<tr>
+                <td>2</td>
+                <td>Extra Charges / Services</td>
+                <td class=\"text-center\">-</td>
+                <td class=\"text-right\">-</td>
+                <td class=\"text-right\">₹ " . number_format($charges['extra'], 2) . "</td>
+            </tr>" : "") . "
+            " . ($charges['discount'] > 0 ? "<tr>
+                <td>-</td>
+                <td>Discount</td>
+                <td class=\"text-center\">-</td>
+                <td class=\"text-right\">-</td>
+                <td class=\"text-right\">(₹ " . number_format($charges['discount'], 2) . ")</td>
+            </tr>" : "") . "
+        </tbody>
+    </table>
+    
+    <!-- Totals -->
+    <div class="totals-section">
+        <table>
+            <tr>
+                <td><strong>Taxable Amount:</strong></td>
+                <td class="text-right">₹ " . number_format($charges['taxable'], 2) . "</td>
+            </tr>
+            <tr>
+                <td>CGST @ " . ($charges['gst_rate'] / 2) . "%:</td>
+                <td class="text-right">₹ " . number_format($charges['cgst'], 2) . "</td>
+            </tr>
+            <tr>
+                <td>SGST @ " . ($charges['gst_rate'] / 2) . "%:</td>
+                <td class="text-right">₹ " . number_format($charges['sgst'], 2) . "</td>
+            </tr>
+            <tr style="border-top: 2px solid #000; font-weight: bold; font-size: 12pt;">
+                <td>Grand Total:</td>
+                <td class="text-right">₹ " . number_format($charges['grand_total'], 2) . "</td>
+            </tr>
+            <tr style="border-top: 1px solid #ccc;">
+                <td>Paid:</td>
+                <td class="text-right">₹ " . number_format($charges['paid'], 2) . "</td>
+            </tr>
+            <tr style="font-weight: bold;">
+                <td>Balance Due:</td>
+                <td class="text-right">₹ " . number_format($charges['balance'], 2) . "</td>
+            </tr>
+        </table>
+    </div>
+    
+    <div style="clear: both; margin-top: 60px;">
+        <p><strong>Amount in Words:</strong> {$amountInWords}</p>
+    </div>
+    
+    <!-- Footer -->
+    <div class="footer">
+        <p><strong>Terms & Conditions:</strong></p>
+        <ul style="margin-left: 20px; font-size: 8pt;">
+            <li>Check-in time: 2:00 PM, Check-out time: 11:00 AM</li>
+            <li>Late check-out charges may apply</li>
+            <li>Payment due upon receipt of invoice</li>
+            <li>This is a computer-generated invoice</li>
+        </ul>
+        <p style="text-align: center; margin-top: 20px;">Thank you for choosing {$hotel['name']}!</p>
+    </div>
+</div>
+HTML;
+    }
 }
+
