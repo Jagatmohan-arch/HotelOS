@@ -936,6 +936,45 @@ if (str_starts_with($requestUri, '/api/')) {
             exit;
         }
         
+        // POST /api/guest/{id}/upload-id - Upload guest ID photo
+        if (preg_match('#^/api/guest/(\d+)/upload-id$#', $requestUri, $matches) && $requestMethod === 'POST') {
+            requireApiAuth();
+            
+            if (!isset($_FILES['id_photo'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'No file uploaded']);
+                exit;
+            }
+            
+            $handler = new \HotelOS\Handlers\UploadHandler();
+            $result = $handler->uploadGuestIdPhoto((int)$matches[1], $_FILES['id_photo']);
+            
+            echo json_encode($result);
+            exit;
+        }
+        
+        // GET /api/guest/{id}/id-photo - Get guest ID photo path
+        if (preg_match('#^/api/guest/(\d+)/id-photo$#', $requestUri, $matches) && $requestMethod === 'GET') {
+            requireApiAuth();
+            
+            $handler = new \HotelOS\Handlers\UploadHandler();
+            $path = $handler->getGuestIdPhoto((int)$matches[1]);
+            
+            echo json_encode(['success' => true, 'path' => $path]);
+            exit;
+        }
+        
+        // DELETE /api/guest/{id}/id-photo - Delete guest ID photo
+        if (preg_match('#^/api/guest/(\d+)/id-photo$#', $requestUri, $matches) && $requestMethod === 'DELETE') {
+            requireApiAuth();
+            
+            $handler = new \HotelOS\Handlers\UploadHandler();
+            $result = $handler->deleteGuestIdPhoto((int)$matches[1]);
+            
+            echo json_encode($result);
+            exit;
+        }
+        
         // 404 for unknown API routes
         http_response_code(404);
         echo json_encode(['error' => 'API endpoint not found']);
