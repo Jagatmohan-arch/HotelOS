@@ -81,7 +81,7 @@ $roomTypes = $roomTypes ?? [];
                 </div>
                 <div class="form-group form-group--grow">
                     <label for="first_name">First Name *</label>
-                    <input type="text" id="first_name" name="first_name" class="form-input" required>
+                    <input type="text" id="first_name" name="first_name" class="form-input">
                 </div>
                 <div class="form-group form-group--grow">
                     <label for="last_name">Last Name</label>
@@ -739,15 +739,28 @@ function nextStep(step) {
     // Validation
     if (currentStep === 1) {
         const guestId = document.getElementById('guest_id').value;
-        const firstName = document.getElementById('first_name').value;
-        const phone = document.getElementById('phone').value;
+        const firstName = document.getElementById('first_name').value.trim();
+        const phone = document.getElementById('phone').value.trim();
+        const guestForm = document.getElementById('guest-form');
         
-        if (!guestId && !firstName) {
-            alert('Please select or create a guest');
+        if (!phone || phone.length < 10) {
+            alert('Please enter a valid 10-digit phone number');
+            document.getElementById('phone').focus();
             return;
         }
-        if (!phone) {
-            alert('Phone number is required');
+        
+        // If guest form is hidden, show it first
+        if (guestForm.style.display === 'none') {
+            guestForm.style.display = 'block';
+            alert('Please enter guest details or search for an existing guest');
+            document.getElementById('first_name').focus();
+            return;
+        }
+        
+        // Validate guest info
+        if (!guestId && !firstName) {
+            alert('Please enter guest first name');
+            document.getElementById('first_name').focus();
             return;
         }
     }
