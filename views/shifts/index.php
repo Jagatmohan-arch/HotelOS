@@ -10,7 +10,7 @@ $shiftHandler = new ShiftHandler();
 
 $currentShift = $shiftHandler->getCurrentShift($user['id']);
 $recentShifts = $shiftHandler->getRecentShifts(10);
-$staffList = $auth->db->query("SELECT id, first_name, last_name, role FROM users WHERE tenant_id = :tid AND is_active = 1 AND id != :uid", ['tid' => $user['tenant_id'], 'uid' => $user['id']], enforceTenant: false);
+$staffList = \HotelOS\Core\Database::getInstance()->query("SELECT id, first_name, last_name, role FROM users WHERE tenant_id = :tid AND is_active = 1 AND id != :uid", ['tid' => $user['tenant_id'], 'uid' => $user['id']], enforceTenant: false);
 
 // Calculate real-time expected cash if shift is open
 $liveExpected = 0.00;
