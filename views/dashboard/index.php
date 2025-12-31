@@ -281,4 +281,101 @@ $departuresDetail = $departuresDetail ?? [];
             </div>
         </div>
     </div>
+    
+    <!-- Owner's Live Feed Section -->
+    <?php 
+    $dashboardHandler = new \HotelOS\Handlers\DashboardHandler();
+    $recentActivity = $dashboardHandler->getRecentActivity(10);
+    ?>
+    <div class="glass-card p-4 mt-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+                <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                Owner's Eye - Live Feed
+            </h2>
+            <a href="/admin/security/audit" class="text-xs text-cyan-400 hover:underline">View All →</a>
+        </div>
+        
+        <div class="space-y-2 max-h-80 overflow-y-auto live-feed-scroll">
+            <?php if (empty($recentActivity)): ?>
+                <p class="text-xs text-slate-500 text-center py-4">No recent activity</p>
+            <?php else: ?>
+                <?php foreach ($recentActivity as $activity): 
+                    // Determine icon and color based on action
+                    $actionIcon = 'activity';
+                    $actionColor = 'text-slate-400';
+                    $bgColor = 'bg-slate-700/30';
+                    $isHighlight = false;
+                    
+                    $action = $activity['action'] ?? '';
+                    
+                    // Check for money-related actions (highlight in orange/red)
+                    if (stripos($action, 'payment') !== false || stripos($action, 'refund') !== false) {
+                        $actionIcon = 'indian-rupee';
+                        $actionColor = 'text-amber-400';
+                        $bgColor = 'bg-amber-500/10';
+                        $isHighlight = true;
+                    } elseif (stripos($action, 'invoice') !== false && stripos($action, 'modif') !== false) {
+                        $actionIcon = 'alert-triangle';
+                        $actionColor = 'text-red-400';
+                        $bgColor = 'bg-red-500/10';
+                        $isHighlight = true;
+                    } elseif (stripos($action, 'check_in') !== false || stripos($action, 'checkin') !== false) {
+                        $actionIcon = 'log-in';
+                        $actionColor = 'text-emerald-400';
+                    } elseif (stripos($action, 'check_out') !== false || stripos($action, 'checkout') !== false) {
+                        $actionIcon = 'log-out';
+                        $actionColor = 'text-orange-400';
+                    } elseif (stripos($action, 'booking') !== false) {
+                        $actionIcon = 'calendar-plus';
+                        $actionColor = 'text-cyan-400';
+                    } elseif (stripos($action, 'login') !== false) {
+                        $actionIcon = 'user-check';
+                        $actionColor = 'text-blue-400';
+                    } elseif (stripos($action, 'delete') !== false || stripos($action, 'cancel') !== false) {
+                        $actionIcon = 'trash-2';
+                        $actionColor = 'text-red-400';
+                        $bgColor = 'bg-red-500/10';
+                        $isHighlight = true;
+                    }
+                    
+                    $staffName = trim(($activity['first_name'] ?? '') . ' ' . ($activity['last_name'] ?? '')) ?: 'System';
+                    $timeAgo = date('h:i A', strtotime($activity['created_at'] ?? 'now'));
+                    $description = ucwords(str_replace('_', ' ', $action));
+                ?>
+                    <div class="flex items-start gap-3 p-2 rounded-lg <?= $bgColor ?> <?= $isHighlight ? 'border border-opacity-30 ' . ($actionColor === 'text-red-400' ? 'border-red-400' : 'border-amber-400') : '' ?>">
+                        <div class="flex-shrink-0 w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center">
+                            <i data-lucide="<?= $actionIcon ?>" class="w-3.5 h-3.5 <?= $actionColor ?>"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs text-white truncate">
+                                <span class="font-medium"><?= htmlspecialchars($staffName) ?></span>
+                                <span class="text-slate-400"><?= htmlspecialchars($description) ?></span>
+                            </p>
+                            <?php if (!empty($activity['description'])): ?>
+                                <p class="text-xs text-slate-500 truncate"><?= htmlspecialchars($activity['description']) ?></p>
+                            <?php endif; ?>
+                        </div>
+                        <span class="text-xs text-slate-500 flex-shrink-0"><?= $timeAgo ?></span>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+    </div>
 </div>
+
+<style>
+.live-feed-scroll::-webkit-scrollbar {
+    width: 4px;
+}
+.live-feed-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+.live-feed-scroll::-webkit-scrollbar-thumb {
+    background: #475569;
+    border-radius: 4px;
+}
+</style>
