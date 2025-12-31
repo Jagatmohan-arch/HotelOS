@@ -342,16 +342,23 @@ if (str_starts_with($requestUri, '/api/')) {
 
         // ========== Booking APIs (Phase 3) ==========
         
-        // GET /api/rooms/available?check_in=X&check_out=Y&room_type_id=Z
+        // GET /api/rooms/available - Search available rooms
         if ($requestUri === '/api/rooms/available' && $requestMethod === 'GET') {
             requireApiAuth();
             
-            $checkIn = $_GET['check_in'] ?? date('Y-m-d');
-            $checkOut = $_GET['check_out'] ?? date('Y-m-d', strtotime('+1 day'));
+            $checkIn = $_GET['check_in'] ?? null;
+            $checkOut = $_GET['check_out'] ?? null;
             $roomTypeId = !empty($_GET['room_type_id']) ? (int)$_GET['room_type_id'] : null;
+            
+            if (!$checkIn || !$checkOut) {
+                http_response_code(400);
+                echo json_encode(['error' => 'check_in and check_out required']);
+                exit;
+            }
             
             $handler = new \HotelOS\Handlers\BookingHandler();
             $rooms = $handler->getAvailableRooms($checkIn, $checkOut, $roomTypeId);
+            
             echo json_encode(['success' => true, 'data' => $rooms]);
             exit;
         }

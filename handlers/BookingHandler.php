@@ -86,6 +86,7 @@ class BookingHandler
         $typeFilter = '';
         $params = [
             'tenant_id' => $tenantId,
+            'sub_tenant_id' => $tenantId,
             'check_in' => $checkIn,
             'check_out' => $checkOut
         ];
@@ -105,7 +106,7 @@ class BookingHandler
                {$typeFilter}
                AND r.id NOT IN (
                    SELECT room_id FROM bookings 
-                   WHERE tenant_id = :tenant_id
+                   WHERE tenant_id = :sub_tenant_id
                      AND room_id IS NOT NULL
                      AND status IN ('confirmed', 'checked_in')
                      AND NOT (check_out_date <= :check_in OR check_in_date >= :check_out)
