@@ -1233,6 +1233,13 @@ try {
             else header('Location: /admin/security/sessions');
             break;
             
+        // ========== Help & Documentation ==========
+        case '/help':
+            $user = $auth->user();
+            $csrfToken = $auth->csrfToken();
+            include VIEWS_PATH . '/help/index.php';
+            break;
+            
         // ========== Shifts (Phase F1) ==========
         case '/shifts':
             renderShiftsPage($auth);
