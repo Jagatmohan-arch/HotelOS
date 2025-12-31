@@ -1020,6 +1020,49 @@ try {
             }
             renderLoginPage($auth);
             break;
+        
+        // ========== Password Reset ==========
+        case '/forgot-password':
+            if ($requestMethod === 'POST') {
+                handleForgotPasswordForm($auth);
+                exit;
+            }
+            // Show request form
+            $csrfToken = $auth->csrfToken();
+            $mode = 'request';
+            $error = '';
+            $success = '';
+            $resetLink = '';
+            include VIEWS_PATH . '/auth/forgot-password.php';
+            break;
+            
+        case '/reset-password':
+            $token = $_GET['token'] ?? $_POST['token'] ?? '';
+            if ($requestMethod === 'POST') {
+                handleResetPasswordForm($auth, $token);
+                exit;
+            }
+            // Show reset form if token is present and valid
+            if (empty($token)) {
+                header('Location: /forgot-password');
+                exit;
+            }
+            $validUser = $auth->validateResetToken($token);
+            if (!$validUser) {
+                $error = 'Invalid or expired reset token. Please request a new one.';
+                $success = '';
+                $csrfToken = $auth->csrfToken();
+                $mode = 'request';
+                $resetLink = '';
+                include VIEWS_PATH . '/auth/forgot-password.php';
+                exit;
+            }
+            $mode = 'reset';
+            $error = '';
+            $success = '';
+            $csrfToken = $auth->csrfToken();
+            include VIEWS_PATH . '/auth/forgot-password.php';
+            break;
             
         case '/logout':
             // Phase F1: Check for open shift
@@ -1488,6 +1531,79 @@ function handleLoginForm(Auth $auth): void
         }
         header('Location: /?error=' . $errorCode);
         exit;
+    }
+}
+
+/**
+ * Handle forgot password form submission
+ */
+function handleForgotPasswordForm(Auth $auth): void
+{
+    $email = trim($_POST['email'] ?? '');
+    
+    if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error = 'Please enter a valid email address.';
+        $csrfToken = $auth->csrfToken();
+        $mode = 'request';
+        $success = '';
+        $resetLink = '';
+        include VIEWS_PATH . '/auth/forgot-password.php';
+        return;
+    }
+    
+    // Generate token
+    $result = $auth->generatePasswordResetToken($email);
+    
+    // Show success message (don't reveal if email exists)
+    $success = 'If this email is registered, you will receive a password reset link.';
+    $error = '';
+    $csrfToken = $auth->csrfToken();
+    $mode = 'request';
+    
+    // In development mode, show the reset link directly
+    // In production, you would send this via email
+    $resetLink = '';
+    if ($result['token']) {
+        // Build reset link
+        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $resetLink = "{$protocol}://{$host}/reset-password?token=" . $result['token'];
+    }
+    
+    include VIEWS_PATH . '/auth/forgot-password.php';
+}
+
+/**
+ * Handle reset password form submission
+ */
+function handleResetPasswordForm(Auth $auth, string $token): void
+{
+    $password = $_POST['password'] ?? '';
+    $passwordConfirm = $_POST['password_confirm'] ?? '';
+    
+    // Validate passwords match
+    if ($password !== $passwordConfirm) {
+        $error = 'Passwords do not match.';
+        $success = '';
+        $csrfToken = $auth->csrfToken();
+        $mode = 'reset';
+        include VIEWS_PATH . '/auth/forgot-password.php';
+        return;
+    }
+    
+    // Attempt reset
+    $result = $auth->resetPassword($token, $password);
+    
+    if ($result['success']) {
+        // Redirect to login with success message
+        header('Location: /login?reset=success');
+        exit;
+    } else {
+        $error = $result['message'];
+        $success = '';
+        $csrfToken = $auth->csrfToken();
+        $mode = 'reset';
+        include VIEWS_PATH . '/auth/forgot-password.php';
     }
 }
 

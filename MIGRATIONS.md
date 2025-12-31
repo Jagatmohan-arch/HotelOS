@@ -1,5 +1,24 @@
 # Migration Automation - Usage Guide
 
+## ⚠️ CRITICAL: Upgrade to v4.0
+
+If you have an existing database (v3.0 or earlier), run this **FIRST**:
+
+```bash
+cd c:\Users\HP\Documents\HotelOS
+# Via phpMyAdmin: Import database/migrations/upgrade_to_v4.sql
+# OR via CLI:
+php -r "require 'config/database.php'; file_get_contents('database/migrations/upgrade_to_v4.sql');"
+```
+
+This migration adds:
+- `pin` column to users (staff quick login)
+- `ledger_type` column to transactions (cash reconciliation)
+- 7 new tables: refund_requests, room_move_history, engine_actions, police_reports, subscription_plans, subscription_transactions, invoice_snapshots
+- Subscription plan seed data
+
+---
+
 ## Quick Start
 
 ### Apply All Pending Migrations

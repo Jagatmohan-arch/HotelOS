@@ -90,6 +90,9 @@ $breadcrumbs = $breadcrumbs ?? [];
     <!-- Alpine.js -->
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     
+    <!-- Loading State Manager (Fix for white screen transitions) -->
+    <script src="/js/loading-state.js"></script>
+    
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏨</text></svg>">
     

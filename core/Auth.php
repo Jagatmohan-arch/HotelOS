@@ -720,4 +720,151 @@ class Auth
         );
         return $user;
     }
+
+    /**
+     * Generate password reset token and store in database
+     * 
+     * @param string $email User email
+     * @return array ['success' => bool, 'token' => ?string, 'message' => string]
+     */
+    public function generatePasswordResetToken(string $email): array
+    {
+        // Find user by email
+        $user = $this->db->queryOne(
+            "SELECT id, email, first_name FROM users WHERE email = :email AND is_active = 1",
+            ['email' => $email],
+            enforceTenant: false
+        );
+
+        if (!$user) {
+            // Don't reveal if email exists (security)
+            return [
+                'success' => true,
+                'message' => 'If this email exists, a reset link has been sent.',
+                'token' => null
+            ];
+        }
+
+        // Generate secure token
+        $token = bin2hex(random_bytes(32));
+        $expiresAt = date('Y-m-d H:i:s', strtotime('+1 hour'));
+
+        // Store token in database
+        $this->db->execute(
+            "UPDATE users SET 
+             reset_token = :token,
+             reset_token_expires_at = :expires
+             WHERE id = :id",
+            [
+                'token' => $token,
+                'expires' => $expiresAt,
+                'id' => $user['id']
+            ],
+            enforceTenant: false
+        );
+
+        // Log the action
+        $this->db->execute(
+            "INSERT INTO audit_logs (tenant_id, user_id, action, entity_type, entity_id, description, ip_address)
+             SELECT tenant_id, id, 'password_reset_requested', 'user', id, 'Password reset token generated', :ip
+             FROM users WHERE id = :id",
+            [
+                'ip' => $_SERVER['REMOTE_ADDR'] ?? null,
+                'id' => $user['id']
+            ],
+            enforceTenant: false
+        );
+
+        return [
+            'success' => true,
+            'token' => $token,
+            'user_name' => $user['first_name'],
+            'message' => 'Reset token generated successfully.'
+        ];
+    }
+
+    /**
+     * Validate password reset token
+     * 
+     * @param string $token Reset token
+     * @return array|null User data if valid, null if invalid/expired
+     */
+    public function validateResetToken(string $token): ?array
+    {
+        $user = $this->db->queryOne(
+            "SELECT id, email, first_name, reset_token_expires_at 
+             FROM users 
+             WHERE reset_token = :token 
+             AND reset_token_expires_at > NOW()
+             AND is_active = 1",
+            ['token' => $token],
+            enforceTenant: false
+        );
+
+        return $user ?: null;
+    }
+
+    /**
+     * Reset password using token
+     * 
+     * @param string $token Reset token
+     * @param string $newPassword New password
+     * @return array ['success' => bool, 'message' => string]
+     */
+    public function resetPassword(string $token, string $newPassword): array
+    {
+        // Validate token first
+        $user = $this->validateResetToken($token);
+
+        if (!$user) {
+            return [
+                'success' => false,
+                'message' => 'Invalid or expired reset token. Please request a new one.'
+            ];
+        }
+
+        // Validate password strength
+        if (strlen($newPassword) < 8) {
+            return [
+                'success' => false,
+                'message' => 'Password must be at least 8 characters long.'
+            ];
+        }
+
+        // Hash new password
+        $passwordHash = self::hashPassword($newPassword);
+
+        // Update password and clear reset token
+        $this->db->execute(
+            "UPDATE users SET 
+             password_hash = :hash,
+             reset_token = NULL,
+             reset_token_expires_at = NULL,
+             failed_login_attempts = 0,
+             locked_until = NULL
+             WHERE id = :id",
+            [
+                'hash' => $passwordHash,
+                'id' => $user['id']
+            ],
+            enforceTenant: false
+        );
+
+        // Log the reset
+        $this->db->execute(
+            "INSERT INTO audit_logs (tenant_id, user_id, action, entity_type, entity_id, description, ip_address)
+             SELECT tenant_id, id, 'password_reset_completed', 'user', id, 'Password successfully reset', :ip
+             FROM users WHERE id = :id",
+            [
+                'ip' => $_SERVER['REMOTE_ADDR'] ?? null,
+                'id' => $user['id']
+            ],
+            enforceTenant: false
+        );
+
+        return [
+            'success' => true,
+            'message' => 'Password has been reset successfully. You can now log in.'
+        ];
+    }
 }

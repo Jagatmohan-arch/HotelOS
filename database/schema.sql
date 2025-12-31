@@ -98,6 +98,9 @@ CREATE TABLE `users` (
     `failed_attempts` TINYINT UNSIGNED DEFAULT 0,
     `locked_until` TIMESTAMP NULL,
     
+    -- Staff Quick Login (4-digit PIN)
+    `pin` CHAR(4) NULL COMMENT '4-digit PIN for staff quick login',
+    
     -- Password Reset
     `reset_token` VARCHAR(64) NULL,
     `reset_token_expires_at` TIMESTAMP NULL,
@@ -534,8 +537,11 @@ CREATE TABLE `transactions` (
     `type` ENUM('credit', 'debit') NOT NULL COMMENT 'Credit=Income, Debit=Refund/Expense',
     `category` ENUM('room_payment', 'advance', 'security_deposit', 'extra_charges', 'refund', 'adjustment') DEFAULT 'room_payment',
     
+    -- Ledger Classification (Critical for cash reconciliation)
+    `ledger_type` ENUM('cash_drawer', 'bank', 'ota_receivable', 'credit_ledger') DEFAULT 'cash_drawer' COMMENT 'Which ledger this transaction affects',
+    
     -- Payment Method
-    `payment_mode` ENUM('cash', 'card', 'upi', 'bank_transfer', 'cheque', 'wallet', 'online') NOT NULL,
+    `payment_mode` ENUM('cash', 'card', 'upi', 'bank_transfer', 'cheque', 'wallet', 'online', 'cashfree', 'ota_prepaid', 'credit', 'post_bill') NOT NULL,
     `reference_number` VARCHAR(100) NULL COMMENT 'UPI Ref / Card Auth / Cheque No',
     `bank_name` VARCHAR(100) NULL,
     
@@ -684,6 +690,235 @@ CREATE TABLE `invoice_items` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================
+-- TABLE: refund_requests (2-Person Approval)
+-- Staff initiates, Manager approves/rejects
+-- ============================================
+DROP TABLE IF EXISTS `refund_requests`;
+CREATE TABLE `refund_requests` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tenant_id` INT UNSIGNED NOT NULL,
+    
+    -- Linked Entities
+    `booking_id` INT UNSIGNED NOT NULL,
+    `invoice_number` VARCHAR(50) NOT NULL COMMENT 'Snapshot of invoice number',
+    
+    -- Request Details
+    `requested_amount` DECIMAL(10,2) NOT NULL,
+    `max_refundable` DECIMAL(10,2) NOT NULL COMMENT 'Snapshot of paid_amount at request time',
+    `reason_code` ENUM('service_complaint', 'early_checkout', 'booking_cancelled', 'overcharge', 'other') NOT NULL,
+    `reason_text` VARCHAR(500) NULL COMMENT 'Additional explanation',
+    
+    -- Requester (Staff)
+    `requested_by` INT UNSIGNED NOT NULL,
+    `requested_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Approval Status
+    `status` ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+    
+    -- Approver (Manager)
+    `approved_by` INT UNSIGNED NULL,
+    `approved_at` TIMESTAMP NULL,
+    `rejection_note` VARCHAR(255) NULL,
+    
+    -- Credit Note (Generated on approval)
+    `credit_note_number` VARCHAR(50) NULL COMMENT 'CN-YYMMDD-NNN',
+    `transaction_id` INT UNSIGNED NULL COMMENT 'Link to transactions table on approval',
+    
+    -- Meta
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    PRIMARY KEY (`id`),
+    INDEX `idx_refund_tenant` (`tenant_id`),
+    INDEX `idx_refund_booking` (`booking_id`),
+    INDEX `idx_refund_status` (`status`),
+    INDEX `idx_refund_requested_by` (`requested_by`),
+    
+    CONSTRAINT `fk_refund_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_refund_booking` FOREIGN KEY (`booking_id`) REFERENCES `bookings`(`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_refund_requester` FOREIGN KEY (`requested_by`) REFERENCES `users`(`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_refund_approver` FOREIGN KEY (`approved_by`) REFERENCES `users`(`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================
+-- TABLE: room_move_history
+-- Tracks every room change during a booking
+-- ============================================
+DROP TABLE IF EXISTS `room_move_history`;
+CREATE TABLE `room_move_history` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tenant_id` INT UNSIGNED NOT NULL,
+    `booking_id` INT UNSIGNED NOT NULL,
+    
+    -- Room Change Details
+    `from_room_id` INT UNSIGNED NOT NULL,
+    `to_room_id` INT UNSIGNED NOT NULL,
+    `from_room_number` VARCHAR(20) NOT NULL COMMENT 'Snapshot',
+    `to_room_number` VARCHAR(20) NOT NULL COMMENT 'Snapshot',
+    
+    -- Reason and Notes
+    `reason` ENUM('maintenance', 'upgrade', 'downgrade', 'guest_request', 'housekeeping', 'other') NOT NULL,
+    `notes` VARCHAR(500) NULL,
+    
+    -- Rate Handling
+    `rate_action` ENUM('keep_original', 'use_new_rate', 'custom') NOT NULL DEFAULT 'keep_original',
+    `old_rate` DECIMAL(10,2) NOT NULL,
+    `new_rate` DECIMAL(10,2) NOT NULL,
+    
+    -- Who and When
+    `moved_by` INT UNSIGNED NOT NULL,
+    `moved_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    PRIMARY KEY (`id`),
+    INDEX `idx_move_tenant` (`tenant_id`),
+    INDEX `idx_move_booking` (`booking_id`),
+    INDEX `idx_move_from` (`from_room_id`),
+    INDEX `idx_move_to` (`to_room_id`),
+    
+    CONSTRAINT `fk_move_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_move_booking` FOREIGN KEY (`booking_id`) REFERENCES `bookings`(`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_move_from` FOREIGN KEY (`from_room_id`) REFERENCES `rooms`(`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_move_to` FOREIGN KEY (`to_room_id`) REFERENCES `rooms`(`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_move_user` FOREIGN KEY (`moved_by`) REFERENCES `users`(`id`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================
+-- TABLE: engine_actions
+-- Owner super-control audit trail
+-- ============================================
+DROP TABLE IF EXISTS `engine_actions`;
+CREATE TABLE `engine_actions` (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tenant_id` INT UNSIGNED NOT NULL,
+    `user_id` INT UNSIGNED NOT NULL COMMENT 'Owner who performed action',
+    
+    `action_type` VARCHAR(50) NOT NULL COMMENT 'modify_invoice, void_invoice, adjust_shift, etc.',
+    `entity_type` VARCHAR(50) NOT NULL,
+    `entity_id` INT UNSIGNED NULL,
+    
+    `old_values` JSON NULL,
+    `new_values` JSON NULL,
+    `reason` VARCHAR(500) NOT NULL COMMENT 'Mandatory justification',
+    
+    `risk_level` ENUM('low', 'medium', 'high', 'critical') DEFAULT 'medium',
+    `password_confirmed` BOOLEAN DEFAULT FALSE,
+    
+    `ip_address` VARCHAR(45) NULL,
+    `user_agent` VARCHAR(500) NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    PRIMARY KEY (`id`),
+    INDEX `idx_engine_tenant` (`tenant_id`),
+    INDEX `idx_engine_user` (`user_id`),
+    INDEX `idx_engine_action` (`action_type`),
+    INDEX `idx_engine_risk` (`risk_level`),
+    INDEX `idx_engine_date` (`created_at`),
+    
+    CONSTRAINT `fk_engine_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_engine_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================
+-- TABLE: police_reports
+-- Indian C-Form compliance tracking
+-- ============================================
+DROP TABLE IF EXISTS `police_reports`;
+CREATE TABLE `police_reports` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tenant_id` INT UNSIGNED NOT NULL,
+    `report_date` DATE NOT NULL,
+    `status` ENUM('pending', 'submitted') DEFAULT 'pending',
+    `submitted_at` TIMESTAMP NULL,
+    `submitted_by` INT UNSIGNED NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_police_report_date` (`tenant_id`, `report_date`),
+    INDEX `idx_police_status` (`status`),
+    INDEX `idx_police_date` (`report_date`),
+    
+    CONSTRAINT `fk_police_report_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================
+-- TABLE: subscription_plans
+-- Plan definitions with pricing
+-- ============================================
+DROP TABLE IF EXISTS `subscription_plans`;
+CREATE TABLE `subscription_plans` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `slug` VARCHAR(50) UNIQUE NOT NULL COMMENT 'starter, professional, enterprise',
+    `name` VARCHAR(100) NOT NULL,
+    `display_name` VARCHAR(100) NOT NULL COMMENT 'Public facing name',
+    `price_monthly` DECIMAL(10,2) NOT NULL,
+    `price_yearly` DECIMAL(10,2) NULL COMMENT 'Discounted yearly price',
+    `max_rooms` INT NULL COMMENT 'NULL = unlimited',
+    `max_users` INT NULL COMMENT 'NULL = unlimited',
+    `features` JSON NULL COMMENT 'Feature flags',
+    `is_active` BOOLEAN DEFAULT TRUE,
+    `sort_order` INT DEFAULT 0,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================
+-- TABLE: subscription_transactions
+-- Payment history for subscriptions
+-- ============================================
+DROP TABLE IF EXISTS `subscription_transactions`;
+CREATE TABLE `subscription_transactions` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `tenant_id` INT UNSIGNED NOT NULL,
+    `plan_id` INT UNSIGNED NULL,
+    `amount` DECIMAL(10,2) NOT NULL,
+    `currency` VARCHAR(3) DEFAULT 'INR',
+    `payment_gateway` VARCHAR(50) DEFAULT 'cashfree',
+    `gateway_transaction_id` VARCHAR(255) NULL COMMENT 'Cashfree payment ID',
+    `gateway_order_id` VARCHAR(255) NULL COMMENT 'Cashfree order ID',
+    `status` ENUM('pending', 'success', 'failed', 'refunded') DEFAULT 'pending',
+    `type` ENUM('trial', 'subscription', 'upgrade', 'renewal', 'downgrade') NOT NULL,
+    `billing_period` ENUM('monthly', 'yearly') NULL,
+    `invoice_url` VARCHAR(500) NULL,
+    `metadata` JSON NULL COMMENT 'Additional payment details',
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    INDEX `idx_sub_txn_tenant` (`tenant_id`),
+    INDEX `idx_sub_txn_status` (`status`),
+    INDEX `idx_sub_txn_gateway` (`gateway_transaction_id`),
+    
+    CONSTRAINT `fk_sub_txn_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_sub_txn_plan` FOREIGN KEY (`plan_id`) REFERENCES `subscription_plans`(`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================
+-- TABLE: invoice_snapshots
+-- Historical copies of modified invoices
+-- ============================================
+DROP TABLE IF EXISTS `invoice_snapshots`;
+CREATE TABLE `invoice_snapshots` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tenant_id` INT UNSIGNED NOT NULL,
+    `invoice_id` INT UNSIGNED NULL,
+    `booking_id` INT UNSIGNED NOT NULL,
+    
+    -- Snapshot data
+    `snapshot_reason` VARCHAR(255) NOT NULL,
+    `invoice_data` JSON NOT NULL COMMENT 'Complete invoice data at snapshot time',
+    
+    -- Tracking
+    `created_by` INT UNSIGNED NOT NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    PRIMARY KEY (`id`),
+    INDEX `idx_snapshot_tenant` (`tenant_id`),
+    INDEX `idx_snapshot_invoice` (`invoice_id`),
+    INDEX `idx_snapshot_booking` (`booking_id`),
+    
+    CONSTRAINT `fk_snapshot_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================
 -- Enable Foreign Keys
 -- ============================================
 SET FOREIGN_KEY_CHECKS = 1;
@@ -730,9 +965,18 @@ INSERT INTO `users` (
 );
 
 -- ============================================
--- SUCCESS: Schema v3.0 Complete!
+-- SEED DATA: Subscription Plans
 -- ============================================
-SELECT '✅ HotelOS Database v3.0 - Complete Hotel Engine!' AS Status;
-SELECT '📊 Tables: tenants, users, room_types, rooms, guests, bookings, transactions, invoices, invoice_items, sessions, audit_logs, settings' AS Tables;
-SELECT '💼 Features: Multi-tenant, GST Billing, Booking Engine, Payment Tracking, Audit Logs' AS Features;
+INSERT INTO `subscription_plans` (`slug`, `name`, `display_name`, `price_monthly`, `price_yearly`, `max_rooms`, `max_users`, `features`, `sort_order`) VALUES
+('starter', 'Starter', 'Starter Plan', 999.00, 9990.00, 10, 5, '{"email_notifications": true, "basic_reports": true, "police_reports": true, "pdf_invoices": true, "sms_notifications": false, "advanced_reports": false, "api_access": false, "whatsapp": false}', 1),
+('professional', 'Professional', 'Professional Plan', 2499.00, 24990.00, 30, 15, '{"email_notifications": true, "basic_reports": true, "police_reports": true, "pdf_invoices": true, "sms_notifications": true, "advanced_reports": true, "api_access": true, "whatsapp": false, "priority_support": false}', 2),
+('enterprise', 'Enterprise', 'Enterprise Plan', 4999.00, 49990.00, NULL, NULL, '{"email_notifications": true, "basic_reports": true, "police_reports": true, "pdf_invoices": true, "sms_notifications": true, "advanced_reports": true, "api_access": true, "whatsapp": true, "priority_support": true, "custom_branding": true}', 3);
+
+-- ============================================
+-- SUCCESS: Schema v4.0 Complete!
+-- ============================================
+SELECT '✅ HotelOS Database v4.0 - Production Ready!' AS Status;
+SELECT '📊 Tables: tenants, users, room_types, rooms, guests, bookings, transactions, invoices, invoice_items, sessions, audit_logs, settings, shifts, cash_ledger, refund_requests, room_move_history, engine_actions, police_reports, subscription_plans, subscription_transactions, invoice_snapshots' AS Tables;
+SELECT '💼 Features: Multi-tenant, GST Billing, Booking Engine, Payment Tracking, Shift Management, Refunds, Police Reports, Subscription System, Audit Logs' AS Features;
 SELECT '👤 Admin: admin@hotelos.in / Admin@123' AS Credentials;
+
