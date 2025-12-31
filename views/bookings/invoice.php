@@ -28,6 +28,10 @@ $branding = $branding ?? [];
 
 // Print mode: 'a4' or 'thermal'
 $printMode = $_GET['mode'] ?? 'a4';
+
+// GST Toggle: on or off (off = Estimate Slip)
+$showGST = ($_GET['gst'] ?? 'on') !== 'off';
+$documentTitle = $showGST ? 'TAX INVOICE' : 'ESTIMATE SLIP';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -43,10 +47,13 @@ $printMode = $_GET['mode'] ?? 'a4';
         <!-- Action Buttons (hidden on print) -->
         <div class="invoice-actions no-print">
             <button class="btn-print" onclick="window.print()">
-                🖨️ Print Invoice
+                🖨️ Print <?= $showGST ? 'Invoice' : 'Slip' ?>
             </button>
             <button class="btn-print btn-secondary" onclick="toggleMode()">
                 📄 <?= $printMode === 'thermal' ? 'A4 Mode' : 'Thermal Mode' ?>
+            </button>
+            <button class="btn-print <?= $showGST ? 'btn-secondary' : 'btn-gst-on' ?>" onclick="toggleGST()">
+                🧾 <?= $showGST ? 'Without GST' : 'With GST' ?>
             </button>
             <a href="/bookings" class="btn-print btn-secondary">
                 ← Back to Front Desk
@@ -85,7 +92,10 @@ $printMode = $_GET['mode'] ?? 'a4';
                 
                 <!-- Invoice Title & Number -->
                 <div class="invoice-title-bar">
-                    <span class="invoice-title">TAX INVOICE</span>
+                    <span class="invoice-title"><?= $documentTitle ?></span>
+                    <?php if (!$showGST): ?>
+                    <span class="estimate-badge">Non-GST Document</span>
+                    <?php endif; ?>
                     <div class="invoice-meta">
                         <strong><?= htmlspecialchars($invoice['invoice_number']) ?></strong>
                         Date: <?= date('d/m/Y', strtotime($invoice['generated_at'])) ?>
@@ -171,20 +181,22 @@ $printMode = $_GET['mode'] ?? 'a4';
                                 <span>Taxable Amount:</span>
                                 <span>₹<?= number_format($charges['taxable'], 2) ?></span>
                             </div>
-                            <?php if (isset($charges['cgst']) && $charges['cgst'] > 0): ?>
-                            <div class="totals-line">
-                                <span>CGST @ <?= $charges['gst_rate']/2 ?>%:</span>
-                                <span>₹<?= number_format($charges['cgst'], 2) ?></span>
-                            </div>
-                            <div class="totals-line">
-                                <span>SGST @ <?= $charges['gst_rate']/2 ?>%:</span>
-                                <span>₹<?= number_format($charges['sgst'], 2) ?></span>
-                            </div>
-                            <?php elseif (isset($charges['igst']) && $charges['igst'] > 0): ?>
-                            <div class="totals-line">
-                                <span>IGST @ <?= $charges['gst_rate'] ?>%:</span>
-                                <span>₹<?= number_format($charges['igst'], 2) ?></span>
-                            </div>
+                            <?php if ($showGST): ?>
+                                <?php if (isset($charges['cgst']) && $charges['cgst'] > 0): ?>
+                                <div class="totals-line">
+                                    <span>CGST @ <?= $charges['gst_rate']/2 ?>%:</span>
+                                    <span>₹<?= number_format($charges['cgst'], 2) ?></span>
+                                </div>
+                                <div class="totals-line">
+                                    <span>SGST @ <?= $charges['gst_rate']/2 ?>%:</span>
+                                    <span>₹<?= number_format($charges['sgst'], 2) ?></span>
+                                </div>
+                                <?php elseif (isset($charges['igst']) && $charges['igst'] > 0): ?>
+                                <div class="totals-line">
+                                    <span>IGST @ <?= $charges['gst_rate'] ?>%:</span>
+                                    <span>₹<?= number_format($charges['igst'], 2) ?></span>
+                                </div>
+                                <?php endif; ?>
                             <?php endif; ?>
                             <div class="totals-line grand-total">
                                 <span>GRAND TOTAL:</span>
@@ -269,6 +281,14 @@ $printMode = $_GET['mode'] ?? 'a4';
             const currentUrl = new URL(window.location.href);
             const currentMode = currentUrl.searchParams.get('mode') || 'a4';
             currentUrl.searchParams.set('mode', currentMode === 'thermal' ? 'a4' : 'thermal');
+            window.location.href = currentUrl.toString();
+        }
+        
+        // Toggle GST on/off (Tax Invoice vs Estimate Slip)
+        function toggleGST() {
+            const currentUrl = new URL(window.location.href);
+            const currentGST = currentUrl.searchParams.get('gst') || 'on';
+            currentUrl.searchParams.set('gst', currentGST === 'off' ? 'on' : 'off');
             window.location.href = currentUrl.toString();
         }
         
