@@ -219,6 +219,67 @@ $breadcrumbs = $breadcrumbs ?? [];
             box-shadow: 0 0 40px rgba(34, 211, 238, 0.1);
         }
         
+        /* Responsive Table Wrapper - Mobile scroll fix */
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+        }
+        
+        .table-responsive::-webkit-scrollbar {
+            height: 6px;
+        }
+        
+        .table-responsive::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
+        
+        .table-responsive::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+        
+        .table-responsive table {
+            min-width: 600px;
+        }
+        
+        @media (max-width: 767px) {
+            .table-responsive {
+                margin: 0 -1rem;
+                padding: 0 1rem;
+                border-radius: 0;
+            }
+        }
+        
+        /* Data Table Styling */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .data-table th,
+        .data-table td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            white-space: nowrap;
+        }
+        
+        .data-table th {
+            background: rgba(0, 0, 0, 0.2);
+            color: #94a3b8;
+            font-weight: 500;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .data-table tbody tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        
         /* Stats Card */
         .stats-card {
             background: var(--glass-bg);
