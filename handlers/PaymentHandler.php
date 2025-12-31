@@ -202,4 +202,89 @@ class PaymentHandler
         $data[8] = chr(ord($data[8]) & 0x3f | 0x80);
         return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
     }
+
+    /**
+     * Get transaction details for receipt
+     */
+    public function getTransaction(int $transactionId): ?array
+    {
+        $tenantId = TenantContext::getId();
+        
+        $transaction = $this->db->queryOne(
+            "SELECT t.*, 
+                    b.booking_number, b.grand_total, b.paid_amount, b.room_id,
+                    g.first_name, g.last_name, g.phone as guest_phone,
+                    r.room_number, rt.name as room_type,
+                    u.first_name as collector_first_name, u.last_name as collector_last_name,
+                    tn.name as hotel_name, tn.address as hotel_address, tn.phone as hotel_phone, tn.gst_number
+             FROM transactions t
+             JOIN bookings b ON t.booking_id = b.id
+             JOIN guests g ON b.guest_id = g.id
+             LEFT JOIN rooms r ON b.room_id = r.id
+             LEFT JOIN room_types rt ON b.room_type_id = rt.id
+             LEFT JOIN users u ON t.collected_by = u.id
+             LEFT JOIN tenants tn ON t.tenant_id = tn.id
+             WHERE t.id = :id AND t.tenant_id = :tid",
+            ['id' => $transactionId, 'tid' => $tenantId],
+            enforceTenant: false
+        );
+
+        if (!$transaction) {
+            return null;
+        }
+
+        // Calculate previous paid amount (before this transaction)
+        $previousPaid = (float)$transaction['paid_amount'] - (float)$transaction['amount'];
+        $transaction['previous_paid'] = max(0, $previousPaid);
+        $transaction['balance_after'] = (float)$transaction['grand_total'] - (float)$transaction['paid_amount'];
+        $transaction['amount_in_words'] = $this->numberToWords((int)$transaction['amount']);
+
+        return $transaction;
+    }
+
+    /**
+     * Convert number to words (Indian format)
+     */
+    public function numberToWords(int $number): string
+    {
+        $ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+                 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+        $tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+        if ($number == 0) return 'Zero';
+        if ($number < 0) return 'Minus ' . $this->numberToWords(abs($number));
+
+        $words = '';
+
+        if ($number >= 10000000) {
+            $words .= $this->numberToWords((int)($number / 10000000)) . ' Crore ';
+            $number %= 10000000;
+        }
+
+        if ($number >= 100000) {
+            $words .= $this->numberToWords((int)($number / 100000)) . ' Lakh ';
+            $number %= 100000;
+        }
+
+        if ($number >= 1000) {
+            $words .= $this->numberToWords((int)($number / 1000)) . ' Thousand ';
+            $number %= 1000;
+        }
+
+        if ($number >= 100) {
+            $words .= $ones[(int)($number / 100)] . ' Hundred ';
+            $number %= 100;
+        }
+
+        if ($number >= 20) {
+            $words .= $tens[(int)($number / 10)] . ' ';
+            $number %= 10;
+        }
+
+        if ($number > 0) {
+            $words .= $ones[$number] . ' ';
+        }
+
+        return trim($words) . ' Only';
+    }
 }

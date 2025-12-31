@@ -1173,6 +1173,19 @@ try {
             else header('Location: /settings?tab=times');
             break;
         
+        // ========== Payment Receipt ==========
+        case (preg_match('#^/payment/receipt/(\d+)$#', $requestUri, $matches) ? true : false):
+            $transactionId = (int)$matches[1];
+            $paymentHandler = new \HotelOS\Handlers\PaymentHandler();
+            $transaction = $paymentHandler->getTransaction($transactionId);
+            if (!$transaction) {
+                http_response_code(404);
+                echo 'Transaction not found';
+                exit;
+            }
+            include VIEWS_PATH . '/payments/receipt.php';
+            break;
+        
         // ========== POS ==========
         case '/pos':
             renderPOSPage($auth);
