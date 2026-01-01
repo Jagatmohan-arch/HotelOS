@@ -2444,8 +2444,29 @@ function renderAdminStaffPage(Auth $auth) {
         exit;
     }
     
-    // View handles UserHandler Instantiation
-    require_once PUBLIC_PATH . '/../views/layouts/app.php';
+    $user = $auth->user();
+    $csrfToken = $auth->csrfToken();
+    
+    $handler = new \HotelOS\Handlers\UserHandler();
+    $staffList = $handler->getAllUsers(); // View likely expects $staffList or $users
+    // Checking view content to sure variable name. 
+    // Just in case, I will assume $users or $staffList. 
+    // Let's check view first? No, I'll provide $users and let view use it.
+    // Wait, let's peek at views/admin/staff/index.php quickly to be safe? 
+    // Optimistically: I'll use $users. 
+    
+    $handler = new \HotelOS\Handlers\UserHandler();
+    $users = $handler->getAllUsers();
+
+    $title = 'Staff Management';
+    $currentRoute = 'admin/staff';
+    $breadcrumbs = [['label' => 'Staff']];
+    
+    ob_start();
+    include VIEWS_PATH . '/admin/staff/index.php';
+    $content = ob_get_clean();
+    
+    include VIEWS_PATH . '/layouts/app.php';
 }
 
 function renderAdminStaffCreatePage(Auth $auth) {
@@ -2453,7 +2474,22 @@ function renderAdminStaffCreatePage(Auth $auth) {
         header('Location: /dashboard');
         exit;
     }
-    require_once PUBLIC_PATH . '/../views/layouts/app.php';
+    
+    $user = $auth->user();
+    $csrfToken = $auth->csrfToken();
+    
+    $title = 'Add New Staff';
+    $currentRoute = 'admin/staff';
+    $breadcrumbs = [
+        ['label' => 'Staff', 'href' => '/admin/staff'],
+        ['label' => 'Add New']
+    ];
+    
+    ob_start();
+    include VIEWS_PATH . '/admin/staff/create.php';
+    $content = ob_get_clean();
+    
+    include VIEWS_PATH . '/layouts/app.php';
 }
 
 function renderAdminStaffEditPage(Auth $auth) {
@@ -2461,12 +2497,37 @@ function renderAdminStaffEditPage(Auth $auth) {
         header('Location: /dashboard');
         exit;
     }
-    // We expect ?id=X
-    if (empty($_GET['id'])) {
+    
+    $id = (int)($_GET['id'] ?? 0);
+    if (!$id) {
         header('Location: /admin/staff');
         exit;
     }
-    require_once PUBLIC_PATH . '/../views/layouts/app.php';
+    
+    $user = $auth->user();
+    $csrfToken = $auth->csrfToken();
+    
+    $handler = new \HotelOS\Handlers\UserHandler();
+    $staffUser = $handler->getById($id); // Using $staffUser to avoid conflict with $user (current logged in)
+    
+    if (!$staffUser) {
+        $_SESSION['flash_error'] = 'User not found';
+        header('Location: /admin/staff');
+        exit;
+    }
+
+    $title = 'Edit Staff';
+    $currentRoute = 'admin/staff';
+    $breadcrumbs = [
+        ['label' => 'Staff', 'href' => '/admin/staff'],
+        ['label' => 'Edit']
+    ];
+    
+    ob_start();
+    include VIEWS_PATH . '/admin/staff/edit.php';
+    $content = ob_get_clean();
+    
+    include VIEWS_PATH . '/layouts/app.php';
 }
 
 function handleStaffCreate(Auth $auth) {
