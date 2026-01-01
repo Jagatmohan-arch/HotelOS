@@ -3,25 +3,43 @@
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
-echo "<h1>HotelOS Database Health Check</h1>";
+echo "<h1>HotelOS Database Health Check (Standard Mode)</h1>";
 
-// 1. Load Environment (Safe Mode)
+$envPath = null;
+if (file_exists('../.env')) {
+    $envPath = '../.env';
+} elseif (file_exists('.env')) {
+    $envPath = '.env';
+} else {
+    // Attempt to look in common cPanel paths
+    if (file_exists('/home/uplfveim/public_html/.env')) $envPath = '/home/uplfveim/public_html/.env';
+    elseif (file_exists($_SERVER['DOCUMENT_ROOT'] . '/../.env')) $envPath = $_SERVER['DOCUMENT_ROOT'] . '/../.env';
+}
+
+if (!$envPath) {
+    die("<h3 style='color:red'>CRITICAL: .env file NOT FOUND anywhere.</h3><p>Current Dir: " . __DIR__ . "</p>");
+} else {
+    echo "<p>Loaded configuration from: $envPath</p>";
+}
+
 try {
-    if (file_exists('../.env')) {
-        $env = parse_ini_file('../.env');
-    } elseif (file_exists('.env')) {
-        $env = parse_ini_file('.env');
-    } else {
-        throw new Exception(".env file not found");
-    }
+    $env = parse_ini_file($envPath);
 } catch (Throwable $e) {
-    die("<h3 style='color:red'>Env Load Failed: " . $e->getMessage() . "</h3>");
+    die("<h3 style='color:red'>Env Parse Error: " . $e->getMessage() . "</h3>");
 }
 
 $host = $env['DB_HOST'] ?? 'localhost';
-$db   = $env['DB_NAME'] ?? '';
-$user = $env['DB_USER'] ?? '';
+$db   = $env['DB_NAME'] ?? 'uplfveim_hotelos';
+$user = $env['DB_USER'] ?? 'uplfveim';
 $pass = $env['DB_PASS'] ?? '';
+
+// Debugging Output (Masked Password)
+echo "<ul>";
+echo "<li>Host: $host</li>";
+echo "<li>Database: $db</li>";
+echo "<li>User: $user</li>";
+echo "<li>Password Length: " . strlen($pass) . " (Should be > 0)</li>";
+echo "</ul>";
 
 echo "Connecting to database '<b>$db</b>' on '$host'...<br>";
 
