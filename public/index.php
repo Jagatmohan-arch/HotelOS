@@ -70,6 +70,21 @@ if (!defined('BASE_PATH')) {
     }
 }
 
+// --- CRITICAL DEBUGGER ---
+register_shutdown_function(function() {
+    $error = error_get_last();
+    if ($error && ($error['type'] === E_ERROR || $error['type'] === E_PARSE || $error['type'] === E_COMPILE_ERROR)) {
+        http_response_code(500);
+        echo "<div style='font-family:monospace;background:#fdd;padding:20px;border:2px solid red;'>";
+        echo "<h1>FATAL ERROR</h1>";
+        echo "<p><strong>Message:</strong> " . htmlspecialchars($error['message']) . "</p>";
+        echo "<p><strong>File:</strong> " . $error['file'] . "</p>";
+        echo "<p><strong>Line:</strong> " . $error['line'] . "</p>";
+        echo "</div>";
+    }
+});
+// -------------------------
+
 if (!defined('PUBLIC_PATH')) {
     // On shared hosting, public folder might be same as root
     if (is_dir(BASE_PATH . '/public')) {
