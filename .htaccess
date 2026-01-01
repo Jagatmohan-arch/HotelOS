@@ -27,19 +27,20 @@
 # ============================================
 
 # Disable directory browsing
-Options -Indexes
+# Disable directory browsing
+# Options -Indexes
 
 # Prevent access to hidden files
-<FilesMatch "^\.">
-    Order allow,deny
-    Deny from all
-</FilesMatch>
+# <FilesMatch "^\.">
+#     Order allow,deny
+#     Deny from all
+# </FilesMatch>
 
 # Block access to sensitive file types
-<FilesMatch "\.(sql|log|md|json|lock|env)$">
-    Order allow,deny
-    Deny from all
-</FilesMatch>
+# <FilesMatch "\.(sql|log|md|json|lock|env)$">
+#     Order allow,deny
+#     Deny from all
+# </FilesMatch>
 
 # Security Headers
 <IfModule mod_headers.c>
@@ -50,8 +51,10 @@ Options -Indexes
 </IfModule>
 
 # PHP Security Settings
-<IfModule mod_php.c>
-    php_flag display_errors Off
-    php_flag log_errors On
-    php_value error_log logs/php_errors.log
-</IfModule>
+# PHP Security Settings
+# NOTE: php_flag causes 500 Error on PHP-FPM/LSAPI (MilesWeb). Use .user.ini instead.
+# <IfModule mod_php.c>
+#     php_flag display_errors Off
+#     php_flag log_errors On
+#     php_value error_log logs/php_errors.log
+# </IfModule>

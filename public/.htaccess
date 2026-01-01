@@ -14,7 +14,8 @@
 </IfModule>
 
 # Disable directory browsing
-Options -Indexes
+# Disable directory browsing
+# Options -Indexes
 
 # Cache static assets
 <IfModule mod_expires.c>
