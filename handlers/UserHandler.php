@@ -74,16 +74,29 @@ class UserHandler
         $passwordHash = Auth::hashPassword($data['password']);
 
         // 3. Insert
-        $id = $this->db->insert('users', [
-            'tenant_id' => TenantContext::getId(),
-            'role' => $data['role'],
-            'email' => $data['email'],
-            'password_hash' => $passwordHash,
-            'first_name' => $data['first_name'],
-            'last_name' => $data['last_name'],
-            'phone' => $data['phone'] ?? null,
-            'is_active' => 1
-        ]);
+        $this->db->execute(
+            "INSERT INTO users (
+                tenant_id, role, email, password_hash, 
+                first_name, last_name, phone, is_active, 
+                created_at, updated_at
+            ) VALUES (
+                :tenant_id, :role, :email, :password_hash,
+                :first_name, :last_name, :phone, 1,
+                NOW(), NOW()
+            )",
+            [
+                'tenant_id' => TenantContext::getId(),
+                'role' => $data['role'],
+                'email' => $data['email'],
+                'password_hash' => $passwordHash,
+                'first_name' => $data['first_name'],
+                'last_name' => $data['last_name'],
+                'phone' => $data['phone'] ?? null
+            ],
+            enforceTenant: false
+        );
+
+        $id = (int)$this->db->lastInsertId();
 
         return ['success' => true, 'user_id' => $id];
     }
