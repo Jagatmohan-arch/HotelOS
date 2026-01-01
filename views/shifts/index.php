@@ -188,7 +188,7 @@ if ($currentShift) {
             </div>
         </div>
         </div>
-    </div>
+
 
     <!-- Ledger Modal (Added via Partial) -->
     <?php include __DIR__ . '/ledger-modal.php'; ?>
