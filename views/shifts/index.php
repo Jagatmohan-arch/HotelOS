@@ -187,9 +187,14 @@ if ($currentShift) {
                 <?php endif; ?>
             </div>
         </div>
+        </div>
     </div>
 
+    <!-- Ledger Modal (Added via Partial) -->
+    <?php include __DIR__ . '/ledger-modal.php'; ?>
+
     <!-- END SHIFT MODAL -->
+
     <div x-show="showEndShiftModal" style="display: none;" 
          class="fixed inset-0 z-50 overflow-y-auto" 
          x-transition:enter="transition ease-out duration-300"
