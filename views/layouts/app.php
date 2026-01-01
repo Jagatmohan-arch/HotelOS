@@ -19,6 +19,9 @@ $title = $title ?? 'Dashboard';
 $currentRoute = $currentRoute ?? 'dashboard';
 $user = $user ?? ['first_name' => 'User', 'role' => 'user'];
 $breadcrumbs = $breadcrumbs ?? [];
+
+// Fetch Subscription Banner
+$subscriptionBanner = \HotelOS\Core\SubscriptionMiddleware::getSubscriptionBanner();
 ?>
 <!DOCTYPE html>
 <html lang="en" data-theme="cosmic">
@@ -663,6 +666,29 @@ $breadcrumbs = $breadcrumbs ?? [];
                         </div>
                     </div>
                 </div>
+
+                <!-- Subscription Banner (Phase 4) -->
+                <?php if (isset($subscriptionBanner) && $subscriptionBanner): ?>
+                <div class="ml-6 px-4 py-1.5 rounded-full flex items-center gap-3 text-xs font-semibold
+                    <?= $subscriptionBanner['urgency'] === 'critical' ? 'bg-red-500/20 text-red-200 border border-red-500/30' : 
+                       ($subscriptionBanner['urgency'] === 'high' ? 'bg-amber-500/20 text-amber-200 border border-amber-500/30' : 
+                       'bg-blue-500/20 text-blue-200 border border-blue-500/30') ?>">
+                    
+                    <?php if ($subscriptionBanner['type'] === 'trial'): ?>
+                        <i data-lucide="timer" class="w-3.5 h-3.5"></i>
+                    <?php else: ?>
+                        <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+                    <?php endif; ?>
+                    
+                    <span><?= htmlspecialchars($subscriptionBanner['message']) ?></span>
+                    
+                    <?php if (!empty($subscriptionBanner['action_url'])): ?>
+                    <a href="<?= $subscriptionBanner['action_url'] ?>" class="hover:underline opacity-90 hover:opacity-100">
+                        <?= htmlspecialchars($subscriptionBanner['action_text']) ?> &rarr;
+                    </a>
+                    <?php endif; ?>
+                </div>
+                <?php endif; ?>
                 
                 <!-- Center: Alerts Bar -->
                 <div class="flex-1 flex justify-center px-8">

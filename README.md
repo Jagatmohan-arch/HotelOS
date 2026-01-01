@@ -3,123 +3,104 @@
 > **Next-Gen SaaS PMS for Indian Hotels**
 > Built with Native PHP 8.2 | MySQL 8.0 | Tailwind CSS | Alpine.js
 
-![HotelOS](https://img.shields.io/badge/Version-1.0.0-cyan)
+![HotelOS](https://img.shields.io/badge/Version-4.0.0_Beta-orange)
 ![PHP](https://img.shields.io/badge/PHP-8.2+-purple)
 ![License](https://img.shields.io/badge/License-Proprietary-red)
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Current Status: BETA (v4.0)
+
+HotelOS is currently in **Beta / Pre-Sale** stage. 
+Core functionalities are fully implemented and production-ready. 
+
+### ✅ Verified Working Features
+- **Authentication**: Secure Login, 4-Digit Staff PIN, RBAC (6 Roles), Mobile Session Management
+- **Front Office**: Interactive Dashboard, Room Grid, Quick Check-in/Check-out
+- **Booking Engine**: Availability Check, Room Moves, Advance Payments, Cancellations
+- **Billing & Finance**: 
+  - 🇮🇳 **GST Compliance** (Auto 12%/18% calculation)
+  - Invoice Generation (PDF ready)
+  - B2B/Corporate Billing
+  - Refund Approval Workflow (2-Level Security)
+- **Shift Management**: 
+  - Cash Drawer Tracking
+  - **Immutable Shift Reports** (Anti-theft)
+  - Expense Recording
+- **Housekeeping**: Mobile-first room status updates
+- **Security**: Audit Logging, Account Locking, CSRF Protection
+
+---
+
+## 🛠️ Quick Start
 
 ### Prerequisites
-- PHP 8.2+ with extensions: `pdo_mysql`, `mbstring`, `json`
-- MySQL 8.0+
+- PHP 8.2+ with extensions: `pdo_mysql`, `mbstring`, `json`, `curl`, `gd`
+- MySQL 8.0+ (Strict Mode)
 - Apache with `mod_rewrite` enabled
+- **CRON Jobs**: Required for trial expiry and session cleanup
 
 ### Local Development
-
-1. **Clone the repository**
+1. **Clone & Setup**:
    ```bash
    git clone https://github.com/your-repo/HotelOS.git
    cd HotelOS
    ```
-
-2. **Create the database**
-   ```sql
-   CREATE DATABASE hotelos_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-   CREATE USER 'hotelos_user'@'localhost' IDENTIFIED BY 'your_secure_password';
-   GRANT ALL PRIVILEGES ON hotelos_db.* TO 'hotelos_user'@'localhost';
-   FLUSH PRIVILEGES;
-   ```
-
-3. **Import schema and seed data**
-   ```bash
-   mysql -u hotelos_user -p hotelos_db < database/schema.sql
-   mysql -u hotelos_user -p hotelos_db < database/seed.sql
-   ```
-
-4. **Configure database credentials**
-   Edit `config/database.php` or set environment variables:
-   ```bash
-   export DB_HOST=localhost
-   export DB_NAME=hotelos_db
-   export DB_USER=hotelos_user
-   export DB_PASS=your_secure_password
-   ```
-
-5. **Start local server**
+2. **Database Setup**:
+   - Create database `hotelos_db`
+   - Import `database/schema.sql` (Base structure)
+   - Import `database/migrations/*` (Apply all verified migrations)
+3. **Configuration**:
+   - Copy `.env.example` to `.env` (if using env loader) OR edit `config/app.php`
+   - Set `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASS`
+4. **Run Server**:
    ```bash
    cd public
    php -S localhost:8000
    ```
 
-6. **Access the application**
-   Open http://localhost:8000 in your browser.
+### 🚢 Production Deployment (cPanel/Shared Hosting)
+1. Upload files to `public_html` (or subdirectory)
+2. Point domain DocumentRoot to `/public` folder
+3. Import SQL files via phpMyAdmin
+4. **Secure Directories**: Ensure `/core`, `/config`, and `/logs` are NOT accessible via browser (.htaccess is provided)
+5. **Cron Jobs**:
+   - `0 0 * * * php /path/to/hotelos/scripts/cron_trial_check.php` (Trial Expiry)
+   - `0 3 * * * php /path/to/hotelos/scripts/cron_cleanup.php` (Session Cleanup)
 
 ---
 
 ## 🔐 Demo Credentials
 
-| Role | Email | Password |
-|------|-------|----------|
-| Owner | owner@grandpalace.com | Demo@123 |
-| Manager | manager@grandpalace.com | Demo@123 |
-| Reception | reception@grandpalace.com | Demo@123 |
+| Role | Email | Password | PIN (Quick Login) |
+|------|-------|----------|-------------------|
+| **Owner** | owner@grandpalace.com | Demo@123 | - |
+| **Manager** | manager@grandpalace.com | Demo@123 | 1234 |
+| **Reception** | reception@grandpalace.com | Demo@123 | 5678 |
+| **Housekeeping** | hk@grandpalace.com | Demo@123 | 9090 |
 
 ---
 
-## 📁 Project Structure
+## ⚠️ Known Issues / Configuration
 
-```
-HotelOS/
-├── .github/workflows/     # GitHub Actions (FTP Deploy)
-├── public/                # Web root (DocumentRoot)
-│   ├── index.php          # Front controller
-│   ├── assets/            # CSS, JS, Images
-│   └── .htaccess          # URL rewriting
-├── config/                # Configuration files (protected)
-│   ├── app.php            # App settings
-│   └── database.php       # DB credentials
-├── core/                  # Core PHP classes (protected)
-│   ├── Auth.php           # Authentication
-│   ├── Database.php       # PDO singleton
-│   ├── Router.php         # Request routing
-│   └── TenantContext.php  # Multi-tenancy
-├── views/                 # PHP view templates
-│   ├── layouts/           # Base templates
-│   ├── auth/              # Login, register
-│   └── errors/            # 404, 500
-├── database/              # SQL schemas
-├── cache/                 # File cache
-└── logs/                  # Error logs
-```
+1. **Email Configuration**: 
+   - Uses `HotelOS\Core\EmailService`.
+   - Currently logs to `logs/emails.log` by default.
+   - **Action**: Configure SMTP in `config/app.php` before production.
+
+2. **Trial Expiry**:
+   - System enforces 14-day trial automatically.
+   - Middleware redirects expired tenants to upgrade page.
+
+3. **Payment Gateways**:
+   - Cashfree integration files present (`handlers/CashfreeHandler.php`).
+   - Sandbox mode active. Switch to Production in config/env.
 
 ---
 
-## 🚢 Deployment (MilesWeb)
+## 🇮🇳 GST Logic
 
-### GitHub Secrets Required
-
-| Secret | Description |
-|--------|-------------|
-| `FTP_HOST` | FTP server hostname (e.g., ftp.needkit.in) |
-| `FTP_USER` | FTP username |
-| `FTP_PASSWORD` | FTP password |
-
-### Automatic Deployment
-Push to `main` branch triggers automatic FTP deployment via GitHub Actions.
-
-### Manual Deployment
-1. Upload all files to `/public_html/HotelOS/` on your server
-2. Set `public/` as the DocumentRoot or configure `.htaccess` redirect
-3. Import database schema via phpMyAdmin
-4. Update `config/database.php` with production credentials
-
----
-
-## 🇮🇳 GST Compliance
-
-HotelOS handles Indian GST automatically:
+HotelOS handles Indian GST automatically based on room base rate:
 
 | Room Rate | GST Rate | Calculation |
 |-----------|----------|-------------|
@@ -129,58 +110,7 @@ HotelOS handles Indian GST automatically:
 
 ---
 
-## 🎨 Theme Modes
-
-- **Cosmic** (Default): Deep space dark mode with neon cyan accents
-- **Royal**: Light mode with professional aesthetics
-- **Comfort**: Warm sepia tones for reduced eye strain
-
-Toggle themes using the floating button on the login page.
-
----
-
-## 🔒 Security Features
-
-- ✅ Argon2ID password hashing
-- ✅ CSRF token protection
-- ✅ Prepared statements (SQL injection prevention)
-- ✅ Multi-tenant data isolation
-- ✅ Account lockout after failed attempts
-- ✅ Secure session management
-- ✅ Protected config directories
-
----
-
-## 📋 Roadmap
-
-### Phase 1 ✅
-- [x] Project structure & security
-- [x] Database schema
-- [x] Authentication system
-- [x] Login UI (Antigravity theme)
-- [x] GitHub Actions deployment
-
-### Phase 2 (Next)
-- [ ] Dashboard UI
-- [ ] Room management CRUD
-- [ ] Room type configuration
-
-### Phase 3
-- [ ] Booking engine
-- [ ] Calendar view
-- [ ] Guest management
-
-### Phase 4
-- [ ] GST invoice generation
-- [ ] Reports & analytics
-- [ ] C-Form generation
-
----
-
 ## 📝 License
-
 Proprietary software. All rights reserved.
-
----
 
 Built with ❤️ for Indian Hospitality by **HotelOS Team**

@@ -208,6 +208,15 @@ class Auth
             ];
         }
 
+        // Fix #1: Check if email is verified
+        if (empty($user['email_verified_at'])) {
+            return [
+                'success' => false,
+                'message' => 'Please verify your email address before logging in.',
+                'user'    => null,
+            ];
+        }
+
         // Check if tenant is active
         if ($user['tenant_status'] !== 'active') {
             return [

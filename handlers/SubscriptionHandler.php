@@ -132,6 +132,20 @@ class SubscriptionHandler
     }
     
     /**
+     * Check if billing is locked (expired trial or subscription)
+     */
+    public function isBillingLocked(): bool
+    {
+        $subscription = $this->getCurrentSubscription();
+        return $this->isExpired([
+            'plan' => $subscription['plan'],
+            'trial_ends_at' => $subscription['trial_ends_at'],
+            'subscription_ends_at' => $subscription['subscription_ends_at'],
+            'created_at' => null // Not needed if dates present
+        ]);
+    }
+
+    /**
      * Check if subscription/trial is expired
      */
     public function isExpired(array $tenant): bool

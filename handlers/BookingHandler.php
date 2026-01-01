@@ -800,6 +800,76 @@ class BookingHandler
         $data[8] = chr(ord($data[8]) & 0x3f | 0x80);
         return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
     }
+
+    /**
+     * Get data for Reservation Calendar (Tape Chart)
+     * 
+     * @param string $startDate Start date (Y-m-d)
+     * @param int $days Number of days to show
+     * @return array ['rooms' => [], 'dates' => [], 'bookings' => []]
+     */
+    public function getCalendarData(string $startDate, int $days = 14): array
+    {
+        $tenantId = TenantContext::getId();
+        $start = new \DateTime($startDate);
+        $end = (clone $start)->modify("+$days days");
+        $endDateStr = $end->format('Y-m-d');
+        
+        // 1. Get all active rooms grouped by type
+        $rooms = $this->db->query(
+            "SELECT r.*, rt.name as room_type_name, rt.color_code 
+             FROM rooms r 
+             JOIN room_types rt ON r.room_type_id = rt.id 
+             WHERE r.tenant_id = :tenant_id AND r.is_active = 1 
+             ORDER BY r.floor, r.room_number",
+            ['tenant_id' => $tenantId],
+            enforceTenant: false
+        );
+        
+        // 2. Get bookings overlapping the range
+        // Overlap: NOT (end <= range_start OR start >= range_end)
+        $bookings = $this->db->query(
+            "SELECT b.id, b.room_id, b.guest_id, b.check_in_date, b.check_out_date, b.status, 
+                    g.first_name, g.last_name, b.booking_number
+             FROM bookings b
+             JOIN guests g ON b.guest_id = g.id
+             WHERE b.tenant_id = :tenant_id
+               AND b.room_id IS NOT NULL 
+               AND b.status IN ('confirmed', 'checked_in', 'checked_out')
+               AND NOT (b.check_out_date <= :start_date OR b.check_in_date >= :end_date)",
+            [
+                'tenant_id' => $tenantId,
+                'start_date' => $startDate,
+                'end_date' => $endDateStr
+            ],
+            enforceTenant: false
+        );
+        
+        // 3. Generate date array for headers
+        $dates = [];
+        $curr = clone $start;
+        for ($i = 0; $i < $days; $i++) {
+            $dates[] = [
+                'date' => $curr->format('Y-m-d'),
+                'day' => $curr->format('D'),
+                'day_num' => $curr->format('d'),
+                'is_weekend' => in_array($curr->format('N'), [6, 7])
+            ];
+            $curr->modify('+1 day');
+        }
+        
+        return [
+            'rooms' => $rooms,
+            'bookings' => $bookings,
+            'dates' => $dates,
+            'start' => $startDate,
+            'end' => $endDateStr
+        ];
+    }
+}
+
+        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+    }
     
     /**
      * Cancel a booking

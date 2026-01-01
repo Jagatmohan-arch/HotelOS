@@ -182,15 +182,20 @@ class RegistrationHandler
     {
         $uuid = $this->generateUUID();
         $passwordHash = Auth::hashPassword($data['password']);
+        
+        // Generate secure 64-char token
+        $verificationToken = bin2hex(random_bytes(32));
 
         $this->db->execute(
             "INSERT INTO users (
                 tenant_id, uuid, email, password_hash, phone,
-                first_name, last_name, role, is_active, email_verified_at,
+                first_name, last_name, role, is_active, 
+                email_verified_at, email_verification_token,
                 created_at
             ) VALUES (
                 :tenant_id, :uuid, :email, :password_hash, :phone,
-                :first_name, :last_name, 'owner', 1, NOW(),
+                :first_name, :last_name, 'owner', 1, 
+                NULL, :token,
                 NOW()
             )",
             [
@@ -200,10 +205,22 @@ class RegistrationHandler
                 'password_hash' => $passwordHash,
                 'phone' => $data['phone'],
                 'first_name' => $data['first_name'],
-                'last_name' => $data['last_name']
+                'last_name' => $data['last_name'],
+                'token' => $verificationToken
             ],
             enforceTenant: false
         );
+
+        // Send verification email
+        try {
+            \HotelOS\Core\EmailService::getInstance()->sendVerificationEmail(
+                $data['email'], 
+                $data['first_name'], 
+                $verificationToken
+            );
+        } catch (\Exception $e) {
+            error_log("Failed to send verification email: " . $e->getMessage());
+        }
 
         return (int) $this->db->lastInsertId();
     }

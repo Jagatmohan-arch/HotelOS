@@ -214,7 +214,7 @@ $csrfToken = $csrfToken ?? '';
             </div>
             <div class="faq-item glass-card p-5">
                 <h4 class="text-white font-medium mb-2">What payment methods do you accept?</h4>
-                <p class="text-slate-400 text-sm">We accept UPI, Credit/Debit Cards, Net Banking via Razorpay.</p>
+                <p class="text-slate-400 text-sm">We accept UPI, Credit/Debit Cards, Net Banking via Cashfree.</p>
             </div>
             <div class="faq-item glass-card p-5">
                 <h4 class="text-white font-medium mb-2">Is there a setup fee?</h4>
@@ -224,25 +224,6 @@ $csrfToken = $csrfToken ?? '';
                 <h4 class="text-white font-medium mb-2">Can I get a refund?</h4>
                 <p class="text-slate-400 text-sm">Yes, full refund within 7 days if you're not satisfied.</p>
             </div>
-        </div>
-    </div>
-</div>
-
-<!-- Payment Modal (for future Razorpay integration) -->
-<div id="paymentModal" class="modal" style="display: none;">
-    <div class="modal-overlay" onclick="closePaymentModal()"></div>
-    <div class="modal-content glass-card p-6">
-        <h3 class="text-xl font-semibold text-white mb-4">Complete Your Upgrade</h3>
-        <div id="paymentDetails"></div>
-        <p class="text-slate-400 text-sm mt-4">
-            Payment gateway integration coming soon. Contact support to upgrade now.
-        </p>
-        <div class="flex gap-3 mt-6">
-            <button class="btn btn--secondary flex-1" onclick="closePaymentModal()">Cancel</button>
-            <a href="mailto:support@hotelos.in" class="btn btn--primary flex-1">
-                <i data-lucide="mail" class="w-4 h-4"></i>
-                Contact Support
-            </a>
         </div>
     </div>
 </div>
@@ -511,30 +492,6 @@ $csrfToken = $csrfToken ?? '';
     gap: 1rem;
 }
 
-/* Modal */
-.modal {
-    position: fixed;
-    inset: 0;
-    z-index: 200;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1rem;
-}
-
-.modal-overlay {
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(4px);
-}
-
-.modal-content {
-    position: relative;
-    max-width: 400px;
-    width: 100%;
-}
-
 /* Responsive */
 @media (max-width: 768px) {
     .pricing-grid {
@@ -560,16 +517,12 @@ $csrfToken = $csrfToken ?? '';
 
 <script>
 function selectPlan(plan) {
-    // For now, show contact modal
-    // TODO: Integrate Razorpay
-    document.getElementById('paymentModal').style.display = 'flex';
-    document.getElementById('paymentDetails').innerHTML = `
-        <p class="text-white">You selected: <strong>${plan.charAt(0).toUpperCase() + plan.slice(1)}</strong></p>
-    `;
-}
-
-function closePaymentModal() {
-    document.getElementById('paymentModal').style.display = 'none';
+    if (plan === 'enterprise') {
+        window.location.href = 'mailto:sales@hotelos.in?subject=Enterprise%20Plan%20Inquiry';
+        return;
+    }
+    // Redirect to checkout
+    window.location.href = '/subscription/checkout?plan=' + encodeURIComponent(plan);
 }
 
 // Initialize icons
