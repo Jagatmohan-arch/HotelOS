@@ -228,7 +228,7 @@ class Auth
 
         // Verify password
         if (!password_verify($password, $user['password_hash'])) {
-            $this->recordFailedAttempt($user['id']);
+            $this->recordFailedAttempt((int) $user['id']);
             return [
                 'success' => false,
                 'message' => 'Invalid email or password.',
