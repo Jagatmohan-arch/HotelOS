@@ -131,7 +131,7 @@ class RegistrationHandler
             
             return [
                 'success' => false,
-                'message' => 'Registration failed: ' . $e->getMessage(),
+                'message' => 'Registration failed. Please try again.',
                 'tenant_id' => null
             ];
         }
@@ -190,12 +190,12 @@ class RegistrationHandler
             "INSERT INTO users (
                 tenant_id, uuid, email, password_hash, phone,
                 first_name, last_name, role, is_active, 
-                email_verified_at, email_verification_token,
+                email_verified_at,
                 created_at
             ) VALUES (
                 :tenant_id, :uuid, :email, :password_hash, :phone,
                 :first_name, :last_name, 'owner', 1, 
-                NULL, :token,
+                NULL,
                 NOW()
             )",
             [
@@ -205,8 +205,7 @@ class RegistrationHandler
                 'password_hash' => $passwordHash,
                 'phone' => $data['phone'],
                 'first_name' => $data['first_name'],
-                'last_name' => $data['last_name'],
-                'token' => $verificationToken
+                'last_name' => $data['last_name']
             ],
             enforceTenant: false
         );
