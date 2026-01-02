@@ -595,11 +595,7 @@ class Auth
      */
     public static function hashPassword(string $password): string
     {
-        return password_hash($password, PASSWORD_ARGON2ID, [
-            'memory_cost' => PASSWORD_ARGON2_DEFAULT_MEMORY_COST,
-            'time_cost'   => PASSWORD_ARGON2_DEFAULT_TIME_COST,
-            'threads'     => PASSWORD_ARGON2_DEFAULT_THREADS,
-        ]);
+        return password_hash($password, PASSWORD_DEFAULT);
     }
 
     /**

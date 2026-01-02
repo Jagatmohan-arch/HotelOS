@@ -195,7 +195,7 @@ class RegistrationHandler
             ) VALUES (
                 :tenant_id, :uuid, :email, :password_hash, :phone,
                 :first_name, :last_name, 'owner', 1, 
-                NULL,
+                NOW(),
                 NOW()
             )",
             [
