@@ -162,6 +162,15 @@ use HotelOS\Core\SubscriptionMiddleware;
 // Phase F: Load Shift Module Functions
 require_once __DIR__ . '/index_shift_append.php';
 
+// Phase A1: Load Extracted Route Files (Day 1)
+// Auth routes extracted to separate files for maintainability
+if (file_exists(BASE_PATH . '/routes/api/auth.php')) {
+    require_once BASE_PATH . '/routes/api/auth.php';
+}
+if (file_exists(BASE_PATH . '/routes/web/auth.php')) {
+    require_once BASE_PATH . '/routes/web/auth.php';
+}
+
 $requestMethod = $_SERVER['REQUEST_METHOD'];
 $requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
@@ -213,15 +222,8 @@ if (str_starts_with($requestUri, '/api/')) {
     header('Content-Type: application/json; charset=utf-8');
     
     try {
-        // POST /api/auth/login
-        if ($requestUri === '/api/auth/login' && $requestMethod === 'POST') {
-            handleLoginApi();
-            exit;
-        }
-        
-        // POST /api/auth/logout
-        if ($requestUri === '/api/auth/logout' && $requestMethod === 'POST') {
-            handleLogoutApi();
+        // Phase A1: Delegate to extracted auth routes
+        if (function_exists('handleApiAuthRoutes') && handleApiAuthRoutes($requestUri, $requestMethod)) {
             exit;
         }
         
@@ -1095,6 +1097,12 @@ try {
     if (preg_match('#^/bookings/(\d+)/cancel$#', $requestUri, $matches) && $requestMethod === 'POST') {
         if (!$auth->check()) { header('Location: /'); exit; }
         handleBookingCancel($auth, (int)$matches[1]);
+        exit;
+    }
+    
+    
+    // Phase A1: Delegate to extracted web auth routes
+    if (function_exists('handleWebAuthRoutes') && handleWebAuthRoutes($requestUri, $requestMethod, $auth)) {
         exit;
     }
     
@@ -2110,25 +2118,7 @@ function renderErrorPage(int $code, string $message): void
     echo $content;
 }
 
-function renderSubscriptionPage(Auth $auth): void
-{
-    $user = $auth->user();
-    $csrfToken = $auth->csrfToken();
-    
-    $handler = new \HotelOS\Handlers\SubscriptionHandler();
-    $subscription = $handler->getCurrentSubscription();
-    $plans = $handler->getAllPlans();
-    
-    $title = 'Subscription Plans';
-    $currentRoute = 'subscription';
-    $breadcrumbs = [['label' => 'Subscription']];
-    
-    ob_start();
-    include VIEWS_PATH . '/subscription/index.php';
-    $content = ob_get_clean();
-    
-    include VIEWS_PATH . '/layouts/app.php';
-}
+
 
 // ============================================
 // Form Handlers - Room Types
