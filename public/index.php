@@ -162,14 +162,13 @@ use HotelOS\Core\SubscriptionMiddleware;
 // Phase F: Load Shift Module Functions
 require_once __DIR__ . '/index_shift_append.php';
 
-// Phase A1: Load Extracted Route Files (Day 1)
-// Auth routes extracted to separate files for maintainability
-if (file_exists(BASE_PATH . '/routes/api/auth.php')) {
-    require_once BASE_PATH . '/routes/api/auth.php';
-}
-if (file_exists(BASE_PATH . '/routes/web/auth.php')) {
-    require_once BASE_PATH . '/routes/web/auth.php';
-}
+// Phase A1: Load Extracted Route Files
+require_once __DIR__ . '/../routes/web/auth.php';
+require_once __DIR__ . '/../routes/web/dashboard.php';
+require_once __DIR__ . '/../routes/web/guests.php';
+require_once __DIR__ . '/../routes/web/bookings.php';
+require_once __DIR__ . '/../routes/web/shifts.php';
+require_once __DIR__ . '/../routes/api/auth.php';
 
 $requestMethod = $_SERVER['REQUEST_METHOD'];
 $requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -1079,67 +1078,36 @@ try {
         // Continue if check passes
     });
 
-    // Checkout Page (Mobile Flow)
-    if (preg_match('#^/bookings/(\d+)/checkout$#', $requestUri, $matches)) {
-        requireAuth();
-        renderCheckoutPage($auth, (int)$matches[1]);
-        exit;
-    }
-
-    // Invoice Page
-    if (preg_match('#^/bookings/(\d+)/invoice$#', $requestUri, $matches)) {
-        if (!$auth->check()) { header('Location: /'); exit; }
-        renderInvoicePage($auth, (int)$matches[1]);
-        exit;
-    }
-    
-    // Cancel booking: /bookings/{id}/cancel (POST)
-    if (preg_match('#^/bookings/(\d+)/cancel$#', $requestUri, $matches) && $requestMethod === 'POST') {
-        if (!$auth->check()) { header('Location: /'); exit; }
-        handleBookingCancel($auth, (int)$matches[1]);
-        exit;
-    }
+    // Regex Routes Delegated to routes/web/bookings.php
     
     
     // Phase A1: Delegate to extracted web auth routes
     if (function_exists('handleWebAuthRoutes') && handleWebAuthRoutes($requestUri, $requestMethod, $auth)) {
         exit;
     }
+    // Phase A1 (Day 2): Delegate Dashboard
+    if (function_exists('handleWebDashboardRoutes') && handleWebDashboardRoutes($requestUri, $requestMethod, $auth)) {
+        exit;
+    }
+    // Phase A1 (Day 2): Delegate Guests
+    if (function_exists('handleWebGuestRoutes') && handleWebGuestRoutes($requestUri, $requestMethod, $auth)) {
+        exit;
+    }
+    // Phase A1 (Day 2): Delegate Bookings
+    if (function_exists('handleWebBookingRoutes') && handleWebBookingRoutes($requestUri, $requestMethod, $auth)) {
+        exit;
+    }
+    // Phase A1 (Day 2): Delegate Shifts
+    if (function_exists('handleWebShiftRoutes') && handleWebShiftRoutes($requestUri, $requestMethod, $auth)) {
+        exit;
+    }
     
     // Route handling
     switch ($requestUri) {
-        // ========== Guest Routes ==========
-        case '/guests':
-            if (!$auth->check()) { header('Location: /login'); exit; }
-            renderGuestPage($auth);
-            break;
-            
-        case '/guests/profile':
-            if (!$auth->check()) { header('Location: /login'); exit; }
-            renderGuestProfilePage($auth);
-            break;
-
-        case '/api/guests/upload-id':
-            if ($requestMethod === 'POST') {
-                requireApiAuth();
-                $handler = new \HotelOS\Handlers\UploadHandler();
-                $guestId = (int)($_POST['guest_id'] ?? 0);
-                $result = $handler->uploadGuestIdPhoto($guestId, $_FILES['id_photo']);
-                
-                if ($result['success']) {
-                    header('Location: /guests/profile?id=' . $guestId . '&tab=documents');
-                } else {
-                    die('Upload failed: ' . $result['error']); // Simple error for now
-                }
-                exit;
-            }
-            break;
+        // ========== Guest Routes Moved to routes/web/guests.php ==========
 
         // ========== Auth Routes ==========
-        case '/bookings/calendar':
-            if (!$auth->check()) { header('Location: /login'); exit; }
-            renderCalendarPage($auth);
-            break;
+        // Booking Calendar Moved to routes/web/bookings.php
 
         case '/subscription/trial-expired':
             // Render the expired page
@@ -1280,10 +1248,7 @@ try {
             header('Location: /?logged_out=1');
             exit;
         
-        // ========== Dashboard ==========
-        case '/dashboard':
-            renderDashboard($auth);
-            break;
+        // ========== Dashboard Moved to routes/web/dashboard.php ==========
         
         // ========== Room Types ==========
         case '/room-types':
@@ -1323,14 +1288,7 @@ try {
             handleRoomDelete($auth);
             break;
         
-        // ========== Bookings (Phase 3 - Front Desk) ==========
-        case '/bookings':
-            renderBookingsPage($auth);
-            break;
-            
-        case '/bookings/create':
-            renderBookingCreatePage($auth);
-            break;
+        // ========== Bookings Moved to routes/web/bookings.php ==========
         
         // ========== Housekeeping ==========
         case '/housekeeping':
@@ -1438,19 +1396,7 @@ try {
             include VIEWS_PATH . '/help/index.php';
             break;
             
-        // ========== Shifts (Phase F1) ==========
-        case '/shifts':
-            renderShiftsPage($auth);
-            break;
-        case '/shifts/start':
-            if ($requestMethod === 'POST') handleShiftStart($auth);
-            break;
-        case '/shifts/end':
-            if ($requestMethod === 'POST') handleShiftEnd($auth);
-            break;
-        case '/shifts/ledger/add':
-            if ($requestMethod === 'POST') handleLedgerAdd($auth);
-            break;
+        // ========== Shifts Moved to routes/web/shifts.php ==========
             
         // ========== Admin Shift Audit (Phase F3) ==========
         case '/admin/shifts':
