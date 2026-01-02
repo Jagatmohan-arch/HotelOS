@@ -3081,7 +3081,8 @@ function handleRegisterForm(Auth $auth): void
             $errorCode = 'invalid';
         }
         
-        header('Location: /register?error=' . $errorCode);
+        // header('Location: /register?error=' . $errorCode);
+        die("DEBUG ERROR: " . $result['message']);
     }
     exit;
 }

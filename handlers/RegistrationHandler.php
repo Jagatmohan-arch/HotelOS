@@ -131,7 +131,7 @@ class RegistrationHandler
             
             return [
                 'success' => false,
-                'message' => 'Registration failed. Please try again.',
+                'message' => 'Registration failed: ' . $e->getMessage(),
                 'tenant_id' => null
             ];
         }
