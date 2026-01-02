@@ -156,7 +156,7 @@ function webAuthLoginForm(Auth $auth): void
         $rateLimiter->clearAttempts($clientIP, 'login');
         header('Location: /dashboard');
     } else {
-        $rateLimiter->logAttempt($clientIP, 'login');
+        $rateLimiter->recordAttempt($clientIP, 'login', false);
         header('Location: /login?error=invalid');
     }
     exit;
