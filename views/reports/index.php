@@ -57,6 +57,10 @@ $summary = $summary ?? [];
            class="px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap <?= $activeTab === 'rooms' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' : 'bg-slate-800/50 text-slate-400 hover:text-white' ?>">
             🚪 Room-wise
         </a>
+        <a href="/reports?tab=credit-notes&start=<?= $startDate ?>&end=<?= $endDate ?>" 
+           class="px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap <?= $activeTab === 'credit-notes' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' : 'bg-slate-800/50 text-slate-400 hover:text-white' ?>">
+            📄 Credit Notes
+        </a>
     </div>
     
     <?php if ($activeTab === 'revenue'): ?>
@@ -294,6 +298,97 @@ $summary = $summary ?? [];
     
     <?php elseif ($activeTab === 'police'): ?>
         <?php include __DIR__ . '/police-report.php'; ?>
+    
+    <?php elseif ($activeTab === 'credit-notes'): ?>
+    <!-- Credit Notes Report -->
+    <?php
+    // Fetch credit notes (approved refunds)
+    $refundHandler = new \HotelOS\Handlers\RefundHandler();
+    $creditNotes = $refundHandler->getAllRefunds('approved', $startDate, $endDate);
+    
+    // Calculate totals
+    $totalCreditNotes = count($creditNotes);
+    $totalRefundAmount = array_sum(array_column($creditNotes, 'refund_amount'));
+    ?>
+    
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+        <div class="stats-card stats-card--cyan">
+            <div class="stats-value"><?= $totalCreditNotes ?></div>
+            <div class="stats-label">Credit Notes Issued</div>
+        </div>
+        <div class="stats-card stats-card--gold">
+            <div class="stats-value">₹<?= number_format((float)$totalRefundAmount) ?></div>
+            <div class="stats-label">Total Refunded</div>
+        </div>
+        <div class="stats-card stats-card--green">
+            <div class="stats-value">₹<?= $totalCreditNotes > 0 ? number_format($totalRefundAmount / $totalCreditNotes) : 0 ?></div>
+            <div class="stats-label">Avg Refund Amount</div>
+        </div>
+    </div>
+    
+    <div class="glass-card overflow-hidden">
+        <div class="p-4 border-b border-slate-700/50 flex justify-between items-center">
+            <h3 class="font-semibold text-white">Credit Notes Register</h3>
+            <button onclick="window.print()" class="btn btn--secondary text-sm py-1">
+                <i data-lucide="printer" class="w-4 h-4"></i>
+                Print
+            </button>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Credit Note #</th>
+                        <th>Date</th>
+                        <th>Booking</th>
+                        <th>Guest</th>
+                        <th>Reason</th>
+                        <th class="text-right">Amount</th>
+                        <th>Approved By</th>
+                        <th>Mode</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($creditNotes)): ?>
+                    <tr><td colspan="8" class="text-center text-slate-500 py-8">No credit notes found for this period</td></tr>
+                    <?php else: ?>
+                    <?php foreach ($creditNotes as $cn): ?>
+                    <tr>
+                        <td class="text-cyan-400 font-mono"><?= htmlspecialchars($cn['credit_note_number'] ?? '-') ?></td>
+                        <td><?= date('d/m/Y', strtotime($cn['approved_at'] ?? $cn['created_at'])) ?></td>
+                        <td>
+                            <a href="/bookings/<?= $cn['booking_id'] ?>" class="text-white hover:text-cyan-400">
+                                <?= htmlspecialchars($cn['booking_number'] ?? '#'.$cn['booking_id']) ?>
+                            </a>
+                        </td>
+                        <td><?= htmlspecialchars(trim(($cn['first_name'] ?? '') . ' ' . ($cn['last_name'] ?? ''))) ?: '-' ?></td>
+                        <td class="text-slate-400 text-sm max-w-[150px] truncate" title="<?= htmlspecialchars($cn['reason_text'] ?? $cn['reason_code']) ?>">
+                            <?= htmlspecialchars($cn['reason_code'] ?? '-') ?>
+                        </td>
+                        <td class="text-right text-amber-400 font-semibold">₹<?= number_format((float)$cn['refund_amount']) ?></td>
+                        <td class="text-slate-400"><?= htmlspecialchars(trim(($cn['approver_first_name'] ?? '') . ' ' . ($cn['approver_last_name'] ?? ''))) ?: 'System' ?></td>
+                        <td>
+                            <span class="px-2 py-0.5 rounded text-xs bg-slate-700 text-slate-300">
+                                <?= ucfirst(htmlspecialchars($cn['refund_mode'] ?? 'cash')) ?>
+                            </span>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+                <?php if (!empty($creditNotes)): ?>
+                <tfoot class="bg-slate-800/50">
+                    <tr class="font-semibold">
+                        <td colspan="5" class="text-right">Total Refunded:</td>
+                        <td class="text-right text-amber-400">₹<?= number_format((float)$totalRefundAmount) ?></td>
+                        <td colspan="2"></td>
+                    </tr>
+                </tfoot>
+                <?php endif; ?>
+            </table>
+        </div>
+    </div>
+    
     <?php endif; ?>
 </div>
 

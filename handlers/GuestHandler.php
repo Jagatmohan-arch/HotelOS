@@ -105,6 +105,12 @@ class GuestHandler
         // Generate UUID
         $uuid = $this->generateUuid();
         
+        // STABILIZATION: Validate phone format (Indian mobile: 10 digits)
+        $phone = preg_replace('/[^0-9]/', '', $data['phone'] ?? '');
+        if (strlen($phone) !== 10) {
+            throw new \InvalidArgumentException('Phone number must be exactly 10 digits');
+        }
+        
         // Sanitize and prepare data
         $insertData = [
             'tenant_id' => $tenantId,

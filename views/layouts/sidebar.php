@@ -1,128 +1,161 @@
 <?php
 /**
- * HotelOS - Sidebar Navigation
+ * HotelOS - Sidebar Navigation (Phase 1: Role Realization)
  * 
- * Glassmorphism sidebar with collapsible desktop + overlay mobile
- * Uses Alpine.js for interactivity
+ * Strict Role-Based Access Control (RBAC) Navigation
+ * Each menu item is explicitly filtered by the 'roles' array.
  * 
- * Variables:
- * - $currentRoute: Current active route (e.g., 'dashboard', 'rooms')
- * - $user: Current authenticated user array
+ * Target Roles: Owner, Manager, Reception, Staff
  */
 
-
-
 $currentRoute = $currentRoute ?? 'dashboard';
-$user = $user ?? ['first_name' => 'User', 'role' => 'user'];
+$user = $user ?? ['first_name' => 'User', 'role' => 'staff'];
+$userRole = $user['role'] ?? 'staff';
 
-// Load subscription data for trial badge
-$subscriptionHandler = new \HotelOS\Handlers\SubscriptionHandler();
-$subscriptionData = $subscriptionHandler->getCurrentSubscription();
+// Load subscription for trial badge (safe fail)
+$subscriptionData = [];
+if (class_exists('\HotelOS\Handlers\SubscriptionHandler')) {
+    try {
+        $subHandler = new \HotelOS\Handlers\SubscriptionHandler();
+        $subscriptionData = $subHandler->getCurrentSubscription();
+    } catch (\Exception $e) {}
+}
 
-// Navigation items with icons
-// Navigation items - OWNER CONTROL TOWER HIERARCHY
-$navItems = [
-    // 1. Dashboard
+// ==========================================
+// PHASE 1: STRICT ROLE-BASED NAVIGATION
+// ==========================================
+
+$allNavItems = [
+    // 1. DASHBOARD (Everyone)
     [
         'route' => 'dashboard',
         'label' => 'Dashboard',
-        'icon' => 'layout-dashboard',
-        'href' => '/dashboard',
+        'icon'  => 'layout-dashboard',
+        'href'  => '/dashboard',
+        'roles' => ['owner', 'manager', 'reception', 'accountant', 'housekeeping', 'staff'],
     ],
-    // 2. Front Desk (Virtual Routing)
+
+    // 2. FRONT DESK (Manager & Reception)
     [
         'route' => 'front-desk',
         'label' => 'Front Desk',
-        'icon' => 'monitor-check',
-        'href' => '#',
+        'icon'  => 'monitor-check',
+        'href'  => '#',
+        'roles' => ['manager', 'reception', 'owner'],
         'children' => [
-            ['route' => 'bookings', 'label' => 'In-House Guests', 'href' => '/bookings?tab=inhouse'],
+            ['route' => 'bookings', 'label' => 'New Booking', 'href' => '/bookings/create'],
             ['route' => 'bookings', 'label' => 'Today Arrivals', 'href' => '/bookings?tab=arrivals'],
-            ['route' => 'bookings', 'label' => 'Today Departures', 'href' => '/bookings?tab=departures'],
-            ['route' => 'rooms', 'label' => 'Room Status Board', 'href' => '/rooms?view=grid'],
-        ],
+            ['route' => 'bookings', 'label' => 'In-House Guests', 'href' => '/bookings?tab=inhouse'],
+            ['route' => 'bookings', 'label' => 'Express Checkout', 'href' => '/bookings?tab=departures'],
+        ]
     ],
-    // 3. Bookings
+
+    // 3. BOOKINGS (Admin/Manager/Reception)
     [
         'route' => 'bookings',
-        'label' => 'Bookings',
-        'icon' => 'calendar-days',
-        'href' => '/bookings',
-        'children' => [
-            ['route' => 'bookings', 'label' => 'All Bookings', 'href' => '/bookings'],
-            ['route' => 'bookings', 'label' => 'New Booking', 'href' => '/bookings/create'],
-            // Future: Calendar View
-        ],
+        'label' => 'All Bookings',
+        'icon'  => 'calendar-days',
+        'href'  => '/bookings',
+        'roles' => ['owner', 'manager', 'reception'],
     ],
-    // 4. Rooms
+
+    // 4. ROOM STATUS (Different views for Housekeeping vs Admin)
     [
         'route' => 'rooms',
-        'label' => 'Rooms',
-        'icon' => 'bed-double',
-        'href' => '/rooms',
+        'label' => 'Room Status',
+        'icon'  => 'bed-double',
+        'href'  => '/rooms',
+        'roles' => ['owner', 'manager', 'reception', 'housekeeping'],
         'children' => [
-            ['route' => 'rooms', 'label' => 'Room List', 'href' => '/rooms'],
-            ['route' => 'room-types', 'label' => 'Room Types', 'href' => '/room-types'],
-        ],
+            ['route' => 'rooms', 'label' => 'Room View', 'href' => '/rooms'],
+            ['route' => 'room-types', 'label' => 'Room Types & Rates', 'href' => '/room-types', 'roles' => ['owner', 'manager']],
+        ]
     ],
-    // 5. Housekeeping
+
+    // 5. HOUSEKEEPING TASKS (Staff)
     [
         'route' => 'housekeeping',
-        'label' => 'Housekeeping',
-        'icon' => 'spray-can',
-        'href' => '/housekeeping',
+        'label' => 'My Tasks',
+        'icon'  => 'clipboard-check',
+        'href'  => '/housekeeping',
+        'roles' => ['housekeeping', 'staff'], 
     ],
-    // 6. POS / Extras
+
+    // 6. POS (Admin/Manager/Reception)
     [
         'route' => 'pos',
-        'label' => 'POS & Extras',
-        'icon' => 'shopping-cart',
-        'href' => '/pos',
+        'label' => 'POS & Service',
+        'icon'  => 'coffee',
+        'href'  => '/pos',
+        'roles' => ['owner', 'manager', 'reception'],
     ],
-    // 7. Shifts & Cash
+
+    // 7. SHIFTS (Everyone who works shifts)
     [
         'route' => 'shifts',
-        'label' => 'Shifts & Cash',
-        'icon' => 'banknote',
-        'href' => '/shifts',
+        'label' => 'My Shift',
+        'icon'  => 'timer',
+        'href'  => '/shifts',
+        'roles' => ['manager', 'reception', 'staff'],
     ],
-    // 8. Reports
+
+    // 8. REPORTS (Owner/Manager/Accountant)
     [
         'route' => 'reports',
-        'label' => 'Reports',
-        'icon' => 'bar-chart-3',
-        'href' => '/reports',
+        'label' => 'Reports & Analytics',
+        'icon'  => 'bar-chart-3',
+        'href'  => '/reports',
+        'roles' => ['owner', 'manager', 'accountant'],
         'children' => [
-            ['route' => 'reports', 'label' => 'Police Report (C-Form)', 'href' => '/reports?tab=police'],
-            ['route' => 'reports', 'label' => 'Daily Revenue', 'href' => '/reports/daily'], // Assuming route exists or will default
+            ['route' => 'reports', 'label' => 'Daily Revenue', 'href' => '/reports/daily'],
+            ['route' => 'reports', 'label' => 'Police Report', 'href' => '/reports/police'],
             ['route' => 'reports', 'label' => 'Occupancy', 'href' => '/reports/occupancy'],
         ]
     ],
-    // 9. Refund Requests (Manager+ Only)
+
+    // 9. REFUND APPROVALS (Owner/Manager)
     [
         'route' => 'admin-refunds',
-        'label' => 'Refund Requests',
-        'icon' => 'receipt-refund',
-        'href' => '/admin/refunds',
+        'label' => 'Refund Approvals',
+        'icon'  => 'receipt-refund',
+        'href'  => '/admin/refunds',
         'roles' => ['owner', 'manager'],
     ],
-    // 10. Administration (Owner Only)
+
+    // 10. SYSTEM SETTINGS (Owner Only)
     [
         'route' => 'settings',
-        'label' => 'Administration',
-        'icon' => 'shield-check',
-        'href' => '/settings',
+        'label' => 'System Settings',
+        'icon'  => 'settings-2',
+        'href'  => '/settings',
         'roles' => ['owner'],
         'children' => [
-            ['route' => 'settings', 'label' => 'Hotel Settings', 'href' => '/settings'],
+            ['route' => 'settings', 'label' => 'Hotel Profile', 'href' => '/settings'],
+            ['route' => 'users', 'label' => 'Staff Management', 'href' => '/settings?tab=users'],
             ['route' => 'settings', 'label' => 'Tax & GST', 'href' => '/settings?tab=tax'],
-            // Future: Staff Manager
         ]
     ],
 ];
+
+// Active Filtering Logic
+$navItems = [];
+foreach ($allNavItems as $item) {
+    if (isset($item['roles']) && !in_array($userRole, $item['roles'])) continue;
+
+    if (isset($item['children'])) {
+        $filteredChildren = [];
+        foreach ($item['children'] as $child) {
+            if (isset($child['roles']) && !in_array($userRole, $child['roles'])) continue;
+            $filteredChildren[] = $child;
+        }
+        if (empty($filteredChildren) && $item['href'] === '#') continue;
+        $item['children'] = $filteredChildren;
+    }
+    $navItems[] = $item;
+}
 ?>
 
-<!-- Sidebar Container with Alpine.js -->
+<!-- UX: Sidebar Container -->
 <aside 
     x-data="{ 
         expanded: false,
@@ -132,39 +165,24 @@ $navItems = [
         isTablet: window.innerWidth >= 768 && window.innerWidth < 1024,
         
         init() {
-            // Device-aware initialization
-            this.isMobile = window.innerWidth < 768;
-            this.isTablet = window.innerWidth >= 768 && window.innerWidth < 1024;
+            this.handleResize();
+            window.addEventListener('resize', () => this.handleResize());
             
-            // DESKTOP RULE: Always Expanded (Control Tower)
+            // Restore desktop state
             if (!this.isMobile && !this.isTablet) {
-                this.expanded = true;
-                localStorage.setItem('sidebarExpanded', 'true');
-            } else if (this.isMobile) {
-                this.expanded = false;
-                this.mobileOpen = false;
-            } else {
-                // Tablet logic
                 this.expanded = localStorage.getItem('sidebarExpanded') !== 'false';
             }
-            
-            // Listen for resize
-            window.addEventListener('resize', () => {
-                this.isMobile = window.innerWidth < 768;
-                this.isTablet = window.innerWidth >= 768 && window.innerWidth < 1024;
-                
-                // Enforce desktop rule on resize
-                if (!this.isMobile && !this.isTablet) {
-                    this.expanded = true;
-                    if (this.mobileOpen) this.mobileOpen = false;
-                }
-            });
+        },
+        
+        handleResize() {
+            this.isMobile = window.innerWidth < 768;
+            this.isTablet = window.innerWidth >= 768 && window.innerWidth < 1024;
+            if (!this.isMobile && !this.isTablet && this.mobileOpen) this.mobileOpen = false;
         },
         
         toggleExpanded() {
             this.expanded = !this.expanded;
             localStorage.setItem('sidebarExpanded', this.expanded);
-            // Dispatch event for app-layout to listen
             document.dispatchEvent(new CustomEvent('sidebar-toggle', { detail: { expanded: this.expanded } }));
         },
         
@@ -172,20 +190,10 @@ $navItems = [
             this.activeDropdown = this.activeDropdown === name ? null : name;
         },
         
-        closeMobile() {
-            this.mobileOpen = false;
-        },
-        
-        toggleMobile() {
-            if (!this.isMobile) {
-                this.toggleExpanded();
-            } else {
-                this.mobileOpen = !this.mobileOpen;
-            }
-        }
+        closeMobile() { this.mobileOpen = false; }
     }"
     @keydown.escape.window="closeMobile()"
-    @toggle-mobile-sidebar.window="toggleMobile()"
+    @toggle-mobile-sidebar.window="mobileOpen = !mobileOpen"
     @close-mobile-sidebar.window="closeMobile()"
     class="sidebar-container"
 >
@@ -198,7 +206,7 @@ $navItems = [
         x-transition:leave="transition-opacity ease-in duration-200"
         x-transition:leave-start="opacity-100"
         x-transition:leave-end="opacity-0"
-        @click="mobileOpen = false"
+        @click="closeMobile()"
         class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[69] lg:hidden"
     ></div>
     
@@ -206,141 +214,75 @@ $navItems = [
     <nav 
         :class="[
             'sidebar-nav',
-            // Desktop/Tablet: use expanded for width
             !isMobile && expanded ? 'sidebar-nav--expanded' : '',
             !isMobile && !expanded ? 'sidebar-nav--collapsed' : '',
-            // Mobile: use mobileOpen for visibility
             isMobile && mobileOpen ? 'sidebar-nav--mobile-open' : ''
         ]"
         class="fixed left-0 top-0 h-full z-[70] flex flex-col transition-all duration-300"
     >
-        <!-- Logo Section -->
+        <!-- Logo -->
         <div class="sidebar-header">
             <a href="/dashboard" class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center shadow-lg shadow-cyan-500/30">
                     <i data-lucide="building-2" class="w-5 h-5 text-white"></i>
                 </div>
-                <span 
-                    x-show="expanded || mobileOpen" 
-                    x-transition:enter="transition-opacity duration-200"
-                    class="text-lg font-bold text-white"
-                >
-                    HotelOS
-                </span>
+                <span x-show="expanded || mobileOpen" class="text-lg font-bold text-white tracking-tight">HotelOS</span>
             </a>
-            
-            <!-- Collapse Button (Removed for Desktop Control Tower) -->
-            <!-- Fixed state only -->
-            
-            <!-- Close Button (Mobile) -->
-            <button 
-                @click="mobileOpen = false"
-                class="lg:hidden flex items-center justify-center w-12 h-12 -mr-2 rounded-lg hover:bg-slate-600/50 text-slate-400 hover:text-white transition-colors"
-                aria-label="Close Menu"
-            >
+            <button @click="closeMobile()" class="lg:hidden p-2 text-slate-400 hover:text-white">
                 <i data-lucide="x" class="w-6 h-6"></i>
             </button>
         </div>
         
-        <!-- Quick Actions Bar -->
+        <!-- Role-Specific Quick Actions -->
+        <?php if (in_array($userRole, ['manager', 'reception', 'owner'])): ?>
         <div class="quick-actions" x-show="expanded || mobileOpen">
-            <a href="/bookings/create" class="quick-action-btn">
-                <i data-lucide="plus-circle"></i>
-                <span>New Booking</span>
+            <a href="/bookings/create" class="quick-action-btn" title="New Booking">
+                <i data-lucide="plus-circle"></i> <span>Book</span>
             </a>
-            <a href="#" @click.prevent="$dispatch('open-quick-checkin')" class="quick-action-btn quick-action-btn--green">
-                <i data-lucide="log-in"></i>
-                <span>Check-in</span>
+            <a href="#" @click.prevent="$dispatch('open-quick-checkin')" class="quick-action-btn quick-action-btn--green" title="Check-in">
+                <i data-lucide="log-in"></i> <span>Check-in</span>
             </a>
-            <a href="/reports/police" class="quick-action-btn quick-action-btn--amber">
-                <i data-lucide="shield"></i>
-                <span>Police</span>
+            <?php if ($userRole !== 'reception'): ?>
+            <a href="/reports/occupancy" class="quick-action-btn quick-action-btn--amber" title="Stats">
+                <i data-lucide="pie-chart"></i> <span>Stats</span>
             </a>
-            <a href="/reports/occupancy" class="quick-action-btn">
-                <i data-lucide="bar-chart-3"></i>
-                <span>Occupancy</span>
-            </a>
+            <?php endif; ?>
         </div>
+        <?php endif; ?>
         
-        <!-- Navigation Links -->
-        <div class="sidebar-content flex-1 overflow-y-auto py-4">
-            <ul class="space-y-1 px-3">
+        <!-- Navigation List -->
+        <div class="sidebar-content flex-1 overflow-y-auto py-4 custom-scrollbar">
+            <ul class="space-y-1.5 px-3">
                 <?php foreach ($navItems as $item): ?>
                     <?php 
-    // Role Based Access Control
-    if (isset($item['roles']) && !in_array($user['role'], $item['roles'])) {
-        continue;
-    }
-
-    $isActive = $currentRoute === $item['route'] || 
-                (isset($item['children']) && in_array($currentRoute, array_column($item['children'], 'route')));
-    ?>
+                    $isActive = $currentRoute === $item['route'] || 
+                                (isset($item['children']) && in_array($currentRoute, array_column($item['children'], 'route')));
+                    ?>
                     
-                    <?php if (isset($item['children'])): ?>
-                        <!-- Dropdown Item -->
-                        <li class="<?= !empty($item['hideOnMobile']) ? 'hidden md:block' : '' ?>">
-                            <button 
-                                @click="toggleDropdown('<?= $item['route'] ?>')"
-                                class="nav-link w-full <?= $isActive ? 'nav-link--active' : '' ?>"
-                            >
+                    <?php if (isset($item['children']) && !empty($item['children'])): ?>
+                        <!-- Dropdown -->
+                        <li>
+                            <button @click="toggleDropdown('<?= $item['route'] ?>')" class="nav-link w-full <?= $isActive ? 'nav-link--active' : '' ?>">
                                 <i data-lucide="<?= $item['icon'] ?>" class="nav-link-icon"></i>
-                                <span 
-                                    x-show="expanded || mobileOpen" 
-                                    class="nav-link-text flex-1 text-left"
-                                >
-                                    <?= htmlspecialchars($item['label']) ?>
-                                </span>
-                                <i 
-                                    x-show="expanded || mobileOpen" 
-                                    data-lucide="chevron-down" 
-                                    class="w-4 h-4 transition-transform"
-                                    :class="activeDropdown === '<?= $item['route'] ?>' ? 'rotate-180' : ''"
-                                ></i>
+                                <span x-show="expanded || mobileOpen" class="nav-link-text flex-1 text-left"><?= htmlspecialchars($item['label']) ?></span>
+                                <i x-show="expanded || mobileOpen" data-lucide="chevron-down" class="w-4 h-4 transition-transform opacity-50" :class="activeDropdown === '<?= $item['route'] ?>' ? 'rotate-180' : ''"></i>
                             </button>
-                            
-                            <!-- Dropdown Menu -->
-                            <ul 
-                                x-show="activeDropdown === '<?= $item['route'] ?>' && (expanded || mobileOpen)"
-                                x-transition:enter="transition ease-out duration-200"
-                                x-transition:enter-start="opacity-0 -translate-y-2"
-                                x-transition:enter-end="opacity-100 translate-y-0"
-                                class="mt-1 ml-6 space-y-1"
-                            >
+                            <ul x-show="activeDropdown === '<?= $item['route'] ?>' && (expanded || mobileOpen)" x-collapse class="mt-1 ml-9 space-y-1 border-l border-slate-700/50 pl-2">
                                 <?php foreach ($item['children'] as $child): ?>
                                     <li>
-                                        <a 
-                                            href="<?= $child['href'] ?>"
-                                            class="nav-link nav-link--child <?= $currentRoute === $child['route'] ? 'nav-link--active' : '' ?>"
-                                        >
-                                            <span class="w-1.5 h-1.5 rounded-full bg-current opacity-50"></span>
-                                            <span class="nav-link-text"><?= htmlspecialchars($child['label']) ?></span>
+                                        <a href="<?= $child['href'] ?>" class="nav-link nav-link--child <?= ($currentRoute === $child['route'] && strpos($_SERVER['REQUEST_URI'] ?? '', $child['href']) !== false) ? 'nav-link--active' : '' ?>">
+                                            <?= htmlspecialchars($child['label']) ?>
                                         </a>
                                     </li>
                                 <?php endforeach; ?>
                             </ul>
                         </li>
                     <?php else: ?>
-                        <!-- Regular Link -->
-                        <li class="<?= !empty($item['hideOnMobile']) ? 'hidden md:block' : '' ?>">
-                            <a 
-                                href="<?= $item['href'] ?>"
-                                class="nav-link <?= $isActive ? 'nav-link--active' : '' ?>"
-                                <?php if (!($expanded ?? true)): ?>
-                                    title="<?= htmlspecialchars($item['label']) ?>"
-                                <?php endif; ?>
-                            >
+                        <!-- Link -->
+                        <li>
+                            <a href="<?= $item['href'] ?>" class="nav-link <?= $isActive ? 'nav-link--active' : '' ?>" title="<?= htmlspecialchars($item['label']) ?>">
                                 <i data-lucide="<?= $item['icon'] ?>" class="nav-link-icon"></i>
-                                <span x-show="expanded || mobileOpen" class="nav-link-text flex-1">
-                                    <?= htmlspecialchars($item['label']) ?>
-                                </span>
-                                <?php if (!empty($item['badge'])): ?>
-                                <span 
-                                    x-show="expanded || mobileOpen" 
-                                    class="nav-badge nav-badge--<?= $item['badgeColor'] ?? 'cyan' ?>"
-                                >
-                                    <?= htmlspecialchars($item['badge']) ?>
-                                </span>
-                                <?php endif; ?>
+                                <span x-show="expanded || mobileOpen" class="nav-link-text flex-1"><?= htmlspecialchars($item['label']) ?></span>
                             </a>
                         </li>
                     <?php endif; ?>
@@ -348,38 +290,26 @@ $navItems = [
             </ul>
         </div>
         
-        <!-- User Section -->
+        <!-- User Profile (Bottom) -->
         <div class="sidebar-footer">
-            <div class="user-card" x-data="{ showMenu: false }">
+            <div class="user-card group hover:bg-slate-800/50 transition-colors" x-data="{ showMenu: false }">
                 <div class="flex items-center gap-3 cursor-pointer" @click="showMenu = !showMenu">
-                    <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
+                    <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-md">
                         <?= strtoupper(substr($user['first_name'], 0, 1)) ?>
                     </div>
                     <div x-show="expanded || mobileOpen" class="flex-1 min-w-0">
-                        <p class="text-sm font-medium text-white truncate">
-                            <?= htmlspecialchars($user['first_name']) ?>
-                        </p>
-                        <p class="text-xs text-slate-400 capitalize">
-                            <?= htmlspecialchars($user['role']) ?>
-                        </p>
+                        <p class="text-sm font-semibold text-white truncate"><?= htmlspecialchars($user['first_name']) ?></p>
+                        <p class="text-[11px] text-slate-400 font-medium uppercase tracking-wider"><?= htmlspecialchars($user['role']) ?></p>
                     </div>
-                    <i x-show="expanded || mobileOpen" data-lucide="chevron-up" class="w-4 h-4 text-slate-500"></i>
+                    <i x-show="expanded || mobileOpen" data-lucide="more-vertical" class="w-4 h-4 text-slate-500"></i>
                 </div>
                 
-                <!-- User Dropdown -->
-                <div 
-                    x-show="showMenu && (expanded || mobileOpen)"
-                    x-transition
-                    @click.outside="showMenu = false"
-                    class="absolute bottom-full left-3 right-3 mb-2 bg-slate-800 rounded-lg border border-slate-700 shadow-xl overflow-hidden"
-                >
-                    <a href="/profile" class="flex items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700/50">
-                        <i data-lucide="user" class="w-4 h-4"></i>
-                        Profile
+                <div x-show="showMenu && (expanded || mobileOpen)" @click.outside="showMenu = false" class="absolute bottom-full left-2 right-2 mb-2 bg-slate-900 rounded-xl border border-slate-700 shadow-2xl p-1 z-50">
+                    <a href="/profile" class="flex items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 rounded-lg">
+                        <i data-lucide="user" class="w-4 h-4"></i> Profile
                     </a>
-                    <a href="/logout" class="flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-slate-700/50">
-                        <i data-lucide="log-out" class="w-4 h-4"></i>
-                        Sign Out
+                    <a href="/logout" class="flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg">
+                        <i data-lucide="log-out" class="w-4 h-4"></i> Sign Out
                     </a>
                 </div>
             </div>
@@ -388,255 +318,42 @@ $navItems = [
 </aside>
 
 <style>
-    /* Sidebar Styles */
-    .sidebar-nav {
-        width: 280px;
-        background: rgba(15, 23, 42, 0.95);
-        backdrop-filter: blur(20px);
-        border-right: 1px solid rgba(255, 255, 255, 0.05);
-    }
+    [x-cloak] { display: none !important; }
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
     
-    .sidebar-nav--collapsed {
-        width: 72px;
-    }
+    .sidebar-nav { width: 260px; background: #0f172a; border-right: 1px solid rgba(255, 255, 255, 0.05); }
+    .sidebar-nav--collapsed { width: 72px; }
     
-    /* Mobile (<768px): 70% overlay mode - HIDDEN by default, slide in on open */
     @media (max-width: 767px) {
-        /* Default: completely hidden off-screen */
-        .sidebar-nav {
-            transform: translateX(-100%);
-            width: 70%;
-            max-width: 280px;
-            min-width: 240px;
-            box-shadow: none;
-            visibility: hidden;
-        }
-        
-        /* Open state: slide in, visible */
-        .sidebar-nav--mobile-open {
-            transform: translateX(0);
-            visibility: visible;
-            box-shadow: 4px 0 30px rgba(0, 0, 0, 0.5);
-            background: rgba(15, 23, 42, 0.98);
-            backdrop-filter: blur(24px);
-            border-right: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        /* Force show text on mobile sidebar */
-        .sidebar-nav--mobile-open .nav-link-text {
-            display: block !important;
-            opacity: 1 !important;
-        }
-        
-        /* Sidebar content padding for mobile */
-        .sidebar-nav--mobile-open .sidebar-content {
-            padding: 0.5rem;
-        }
-        
-        /* Override any collapsed/expanded classes on mobile */
-        .sidebar-nav--collapsed,
-        .sidebar-nav--expanded {
-            /* These classes should not affect mobile */
-        }
+        .sidebar-nav { transform: translateX(-100%); width: 75%; max-width: 300px; }
+        .sidebar-nav--mobile-open { transform: translateX(0); visibility: visible; box-shadow: 10px 0 50px rgba(0,0,0,0.5); }
+        .sidebar-nav--mobile-open .nav-link-text { display: block !important; opacity: 1 !important; } 
     }
     
-    /* Tablet (768px - 1023px): Mini sidebar by default */
-    @media (min-width: 768px) and (max-width: 1023px) {
-        .sidebar-nav {
-            width: 72px;
-        }
-        .sidebar-nav--expanded {
-            width: 280px;
-        }
-    }
+    .sidebar-header { height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .sidebar-footer { padding: 1rem; border-top: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.2); }
     
-    /* Desktop (1024+): Full sidebar */
-    @media (min-width: 1024px) {
-        .sidebar-nav--collapsed {
-            width: 72px;
-        }
-        .sidebar-nav--expanded {
-            width: 280px;
-        }
-    }
+    .nav-link { display: flex; align-items: center; gap: 0.875rem; padding: 0.625rem 0.875rem; border-radius: 0.5rem; color: #94a3b8; transition: all 0.2s; font-size: 0.875rem; font-weight: 500; text-decoration: none; }
+    .nav-link:hover { background: rgba(255,255,255,0.03); color: #e2e8f0; }
+    .nav-link--active { background: rgba(6, 182, 212, 0.1); color: #22d3ee; }
+    .nav-link--active .nav-link-icon { color: #22d3ee; filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.3)); }
+    .nav-link-icon { width: 1.25rem; height: 1.25rem; flex-shrink: 0; }
     
-    .sidebar-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 1rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    }
+    .quick-actions { padding: 0.75rem 1rem; display: flex; gap: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.1); }
+    .quick-action-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.25rem; padding: 0.5rem; border-radius: 0.5rem; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.2); color: #38bdf8; font-size: 0.65rem; font-weight: 600; text-decoration: none; }
+    .quick-action-btn--green { background: rgba(34, 197, 94, 0.1); border-color: rgba(34, 197, 94, 0.2); color: #4ade80; }
+    .quick-action-btn--amber { background: rgba(251, 191, 36, 0.1); border-color: rgba(251, 191, 36, 0.2); color: #fbbf24; }
+    .quick-action-btn svg { width: 1.125rem; height: 1.125rem; }
     
-    .sidebar-footer {
-        padding: 1rem;
-        border-top: 1px solid rgba(255, 255, 255, 0.05);
-        position: relative;
-    }
+    /* Ensure text is hidden in collapsed desktop mode */
+    .sidebar-nav--collapsed .nav-link-text, 
+    .sidebar-nav--collapsed .group p,
+    .sidebar-nav--collapsed .sidebar-header span,
+    .sidebar-nav--collapsed i[data-lucide="chevron-down"],
+    .sidebar-nav--collapsed .quick-actions { display: none; }
     
-    /* Navigation Link Styles */
-    .nav-link {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        padding: 0.625rem 0.75rem;
-        border-radius: 0.5rem;
-        color: #94a3b8;
-        transition: all 0.2s ease;
-        font-size: 0.875rem;
-        text-decoration: none;
-    }
-    
-    .nav-link:hover {
-        background: rgba(255, 255, 255, 0.05);
-        color: #e2e8f0;
-    }
-    
-    .nav-link--active {
-        background: rgba(34, 211, 238, 0.1);
-        color: #22d3ee;
-    }
-    
-    .nav-link--active .nav-link-icon {
-        color: #22d3ee;
-    }
-    
-    .nav-link-icon {
-        width: 1.25rem;
-        height: 1.25rem;
-        flex-shrink: 0;
-    }
-    
-    .nav-link--child {
-        padding: 0.5rem 0.75rem;
-        font-size: 0.8125rem;
-    }
-    
-    .user-card {
-        padding: 0.5rem;
-        border-radius: 0.5rem;
-        background: rgba(255, 255, 255, 0.03);
-    }
-    
-    /* Nav Badge (for trial countdown etc) */
-    .nav-badge {
-        display: inline-flex;
-        align-items: center;
-        padding: 0.125rem 0.5rem;
-        font-size: 0.6875rem;
-        font-weight: 600;
-        border-radius: 9999px;
-        letter-spacing: 0.02em;
-    }
-    
-    .nav-badge--cyan {
-        background: rgba(34, 211, 238, 0.15);
-        color: #22d3ee;
-    }
-    
-    .nav-badge--red {
-        background: rgba(248, 113, 113, 0.15);
-        color: #f87171;
-        animation: pulse-badge 2s ease-in-out infinite;
-    }
-    
-    @keyframes pulse-badge {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.6; }
-    }
-    
-    /* ============================================
-       Smooth Animation Fixes (No Flickering)
-       ============================================ */
-    
-    /* GPU accelerated transitions */
-    .sidebar-nav {
-        will-change: width;
-        transform: translateZ(0);
-        backface-visibility: hidden;
-    }
-    
-    .nav-link {
-        transition: background 0.15s ease, color 0.15s ease !important;
-        transform: translateZ(0);
-    }
-    
-    /* Prevent icon re-render flicker */
-    .nav-link-icon,
-    .nav-link-icon svg {
-        transition: none !important;
-        transform: translateZ(0);
-    }
-    
-    /* Smooth dropdown animation */
-    .sidebar-content ul[x-show] {
-        transform-origin: top;
-    }
-    
-    /* ============================================
-       Quick Actions Bar
-       ============================================ */
-    
-    .quick-actions {
-        padding: 0.75rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-    }
-    
-    .quick-action-btn {
-        flex: 1;
-        min-width: 80px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.25rem;
-        padding: 0.5rem;
-        border-radius: 0.5rem;
-        background: rgba(34, 211, 238, 0.1);
-        border: 1px solid rgba(34, 211, 238, 0.2);
-        color: #22d3ee;
-        font-size: 0.65rem;
-        text-decoration: none;
-        transition: all 0.2s ease;
-        text-align: center;
-    }
-    
-    .quick-action-btn:hover {
-        background: rgba(34, 211, 238, 0.2);
-        transform: translateY(-2px);
-    }
-    
-    .quick-action-btn svg,
-    .quick-action-btn i {
-        width: 1rem;
-        height: 1rem;
-    }
-    
-    /* Hide quick actions when collapsed */
-    .sidebar-nav--collapsed .quick-actions {
-        display: none;
-    }
-    
-    /* Quick action color variants */
-    .quick-action-btn--green {
-        background: rgba(34, 197, 94, 0.15);
-        border-color: rgba(34, 197, 94, 0.3);
-        color: #22c55e;
-    }
-    
-    .quick-action-btn--green:hover {
-        background: rgba(34, 197, 94, 0.25);
-    }
-    
-    .quick-action-btn--amber {
-        background: rgba(245, 158, 11, 0.15);
-        border-color: rgba(245, 158, 11, 0.3);
-        color: #f59e0b;
-    }
-    
-    .quick-action-btn--amber:hover {
-        background: rgba(245, 158, 11, 0.25);
-    }
+    .sidebar-nav--collapsed .sidebar-header { justify-content: center; padding: 0; }
+    .sidebar-nav--collapsed .nav-link { justify-content: center; padding: 0.75rem; }
+    .sidebar-nav--collapsed .user-card { display: flex; justify-content: center; }
 </style>

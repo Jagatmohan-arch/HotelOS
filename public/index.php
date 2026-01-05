@@ -71,16 +71,32 @@ if (!defined('BASE_PATH')) {
 }
 
 // --- CRITICAL DEBUGGER ---
+// Only show detailed error output in debug mode
 register_shutdown_function(function() {
     $error = error_get_last();
     if ($error && ($error['type'] === E_ERROR || $error['type'] === E_PARSE || $error['type'] === E_COMPILE_ERROR)) {
         http_response_code(500);
-        echo "<div style='font-family:monospace;background:#fdd;padding:20px;border:2px solid red;'>";
-        echo "<h1>FATAL ERROR</h1>";
-        echo "<p><strong>Message:</strong> " . htmlspecialchars($error['message']) . "</p>";
-        echo "<p><strong>File:</strong> " . $error['file'] . "</p>";
-        echo "<p><strong>Line:</strong> " . $error['line'] . "</p>";
-        echo "</div>";
+        
+        // Only show detailed error in debug mode
+        $isDebugMode = (bool)(getenv('APP_DEBUG') ?: ($_ENV['APP_DEBUG'] ?? false));
+        
+        if ($isDebugMode) {
+            echo "<div style='font-family:monospace;background:#fdd;padding:20px;border:2px solid red;'>";
+            echo "<h1>FATAL ERROR</h1>";
+            echo "<p><strong>Message:</strong> " . htmlspecialchars($error['message']) . "</p>";
+            echo "<p><strong>File:</strong> " . $error['file'] . "</p>";
+            echo "<p><strong>Line:</strong> " . $error['line'] . "</p>";
+            echo "</div>";
+        } else {
+            // Production: Show generic error message
+            echo "<div style='font-family:sans-serif;text-align:center;padding:50px;'>";
+            echo "<h1>Something went wrong</h1>";
+            echo "<p>We're sorry, an unexpected error occurred. Please try again or contact support.</p>";
+            echo "</div>";
+        }
+        
+        // Always log error to file
+        error_log("FATAL ERROR: {$error['message']} in {$error['file']} on line {$error['line']}");
     }
 });
 // -------------------------
@@ -168,6 +184,8 @@ require_once __DIR__ . '/../routes/web/dashboard.php';
 require_once __DIR__ . '/../routes/web/guests.php';
 require_once __DIR__ . '/../routes/web/bookings.php';
 require_once __DIR__ . '/../routes/web/shifts.php';
+require_once __DIR__ . '/../routes/web/public.php'; // Phase 3: Direct Booking
+require_once __DIR__ . '/../routes/web/guest_portal.php'; // Phase 3: Guest Portal
 require_once __DIR__ . '/../routes/api/auth.php';
 
 $requestMethod = $_SERVER['REQUEST_METHOD'];
@@ -210,6 +228,13 @@ if ($requestUri === '/verify-email' && $requestMethod === 'GET') {
     // Auto-login or redirect
     Auth::loginUser($user);
     header("Location: /dashboard?verified=1");
+    exit;
+}
+
+// ============================================
+// Phase 3: Direct Booking Engine Public Routes
+// ============================================
+if (function_exists('handleWebPublicRoutes') && handleWebPublicRoutes($requestUri, $requestMethod)) {
     exit;
 }
 

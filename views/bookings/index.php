@@ -4,7 +4,9 @@
  * Shows today's arrivals, departures, and in-house guests
  */
 
-
+// Check if user is Manager or above for Tax Exempt button visibility
+$auth = \HotelOS\Core\Auth::getInstance();
+$isManager = $auth->isManager();
 
 $pageTitle = 'Front Desk | HotelOS';
 $activeNav = 'bookings';
@@ -542,25 +544,35 @@ function renderDeparturesTable(bookings) {
     `).join('');
 }
 
+// Pass manager status from PHP to JavaScript
+const userIsManager = <?= $isManager ? 'true' : 'false' ?>;
+
 function renderInHouseTable(bookings) {
     const tbody = document.getElementById('inhouse-table');
     if (bookings.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center">No guests in-house</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center">No guests in-house</td></tr>';
         return;
     }
     
-    tbody.innerHTML = bookings.map(b => `
+    tbody.innerHTML = bookings.map(b => {
+        const taxExemptBadge = b.is_tax_exempt ? '<span class="badge badge--tax-exempt" title="Tax Exempt">TAX EXEMPT</span>' : '';
+        const taxExemptBtn = userIsManager && !b.is_tax_exempt 
+            ? `<button class="btn btn--sm btn--tax" onclick="openTaxExemptModal(${b.id}, '${b.first_name} ${b.last_name}', '${b.room_number}')" title="Mark Tax Exempt (Govt/Diplomatic)">Tax Exempt</button>` 
+            : '';
+        
+        return `
         <tr>
             <td><strong>${b.room_number}</strong></td>
             <td>${b.first_name} ${b.last_name}<br><small>${b.guest_phone}</small></td>
             <td>${b.check_in_date}</td>
             <td>${b.check_out_date}</td>
-            <td><span class="badge badge--success">Checked In</span></td>
-            <td>
+            <td><span class="badge badge--success">Checked In</span> ${taxExemptBadge}</td>
+            <td class="action-buttons">
                 <button class="btn btn--sm" style="background: rgba(59, 130, 246, 0.2); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.4);" onclick="openMoveModal(${b.id}, '${b.room_number}', '${b.first_name} ${b.last_name}')">Move</button>
+                ${taxExemptBtn}
             </td>
         </tr>
-    `).join('');
+    `}).join('');
 }
 
 function checkIn(bookingId) {
@@ -709,4 +721,130 @@ function submitMove() {
 }
 .modal-overlay.active { display: flex; }
 .modal-content { width: 100%; max-width: 400px; }
+
+/* Tax Exempt Button & Badge */
+.btn--tax {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+.btn--tax:hover {
+    background: rgba(245, 158, 11, 0.2);
+}
+.badge--tax-exempt {
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+    font-size: 0.65rem;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    margin-left: 0.5rem;
+}
+.action-buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
 </style>
+
+<!-- Tax Exempt Modal -->
+<div id="tax-exempt-modal" class="modal-overlay">
+    <div class="modal-content glass-card">
+        <div class="p-6">
+            <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                </svg>
+                Tax Exemption
+            </h2>
+            
+            <div class="mb-4 text-sm text-slate-300 bg-slate-800 p-3 rounded-lg">
+                <p>Mark booking for <strong id="tax-guest-name" class="text-white"></strong> (Room <strong id="tax-room" class="text-cyan-400"></strong>) as tax-exempt.</p>
+                <p class="mt-2 text-amber-400 text-xs">⚠️ This removes GST from the final bill. Use only for government, diplomatic, or officially exempt guests.</p>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">Exemption Reason (Required)</label>
+                    <select id="tax-exempt-reason" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+                        <option value="">Select reason...</option>
+                        <option value="government">Government Official</option>
+                        <option value="diplomatic">Diplomatic/Embassy</option>
+                        <option value="un_agency">UN Agency</option>
+                        <option value="army_defense">Army/Defense Personnel</option>
+                        <option value="tax_certificate">Tax Exemption Certificate</option>
+                        <option value="other">Other (specify below)</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">Additional Notes</label>
+                    <textarea id="tax-exempt-notes" rows="2" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white" placeholder="Certificate number, official order reference, etc."></textarea>
+                </div>
+                
+                <div class="flex gap-3 mt-6">
+                    <button onclick="closeTaxExemptModal()" class="flex-1 py-2 bg-slate-700 rounded-lg text-slate-200">Cancel</button>
+                    <button onclick="submitTaxExempt()" class="flex-1 py-2 bg-amber-600 rounded-lg text-white font-bold hover:bg-amber-500">Confirm Exemption</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Tax Exempt Modal Functions
+let currentTaxExemptBookingId = null;
+
+function openTaxExemptModal(bookingId, guestName, roomNumber) {
+    currentTaxExemptBookingId = bookingId;
+    document.getElementById('tax-exempt-modal').classList.add('active');
+    document.getElementById('tax-guest-name').innerText = guestName;
+    document.getElementById('tax-room').innerText = roomNumber;
+    document.getElementById('tax-exempt-reason').value = '';
+    document.getElementById('tax-exempt-notes').value = '';
+}
+
+function closeTaxExemptModal() {
+    document.getElementById('tax-exempt-modal').classList.remove('active');
+    currentTaxExemptBookingId = null;
+}
+
+function submitTaxExempt() {
+    if (!currentTaxExemptBookingId) return;
+    
+    const reason = document.getElementById('tax-exempt-reason').value;
+    const notes = document.getElementById('tax-exempt-notes').value;
+    
+    if (!reason) {
+        alert('Please select an exemption reason');
+        return;
+    }
+    
+    const fullReason = reason + (notes ? ': ' + notes : '');
+    
+    if (!confirm('Confirm tax exemption? This will remove GST from the final bill calculation.')) return;
+    
+    fetch(`/api/bookings/${currentTaxExemptBookingId}/tax-exempt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            exempt: true,
+            reason: fullReason
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Tax exemption applied successfully!');
+            closeTaxExemptModal();
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Failed to apply exemption'));
+        }
+    })
+    .catch(err => {
+        alert('Connection error');
+    });
+}
+</script>

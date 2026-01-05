@@ -98,20 +98,19 @@ class BookingHandler
         
         return $this->db->query(
             "SELECT r.*, rt.name as room_type_name, rt.code as room_type_code, rt.base_rate
-             FROM rooms r
-             JOIN room_types rt ON r.room_type_id = rt.id
-             WHERE r.tenant_id = :tenant_id
-               AND r.status != 'maintenance'
-               AND r.is_active = 1
+             FROM rooms r 
+             JOIN room_types rt ON r.room_type_id = rt.id 
+             WHERE r.tenant_id = :tenant_id 
+               AND r.is_active = 1 
                {$typeFilter}
                AND r.id NOT IN (
-                   SELECT room_id FROM bookings 
-                   WHERE tenant_id = :sub_tenant_id
-                     AND room_id IS NOT NULL
-                     AND status IN ('confirmed', 'checked_in')
-                     AND NOT (check_out_date <= :check_in OR check_in_date >= :check_out)
+                   SELECT b.room_id FROM bookings b 
+                   WHERE b.tenant_id = :sub_tenant_id
+                     AND b.status IN ('confirmed', 'checked_in')
+                     AND b.room_id IS NOT NULL
+                     AND NOT (b.check_out_date <= :check_in OR b.check_in_date >= :check_out)
                )
-             ORDER BY rt.sort_order, r.floor, r.room_number",
+             ORDER BY r.floor, r.room_number",
             $params,
             enforceTenant: false
         );
@@ -120,148 +119,164 @@ class BookingHandler
     /**
      * Create a new booking
      * 
-     * @param array $data Booking data
-     * @return array ['success' => bool, 'booking_id' => int|null, 'booking_number' => string|null, 'error' => string|null]
+     * @param array $data Form data
+     * @return array Result ['success' => bool, 'id' => int]
      */
     public function create(array $data): array
     {
         $tenantId = TenantContext::getId();
+        $userId = $this->auth->id() ?? 0;
         
-        // MIXED TRANSACTION LOGIC: Start transaction early to lock room
-        try {
-            $this->db->beginTransaction();
-            
-            // Validate required fields
-            $required = ['guest_id', 'room_type_id', 'check_in_date', 'check_out_date', 'rate_per_night'];
-            foreach ($required as $field) {
-                if (empty($data[$field])) {
-                    $this->db->rollback();
-                    return ['success' => false, 'error' => "Missing required field: {$field}"];
-                }
+        // 1. Validate Guest
+        $guestHandler = new GuestHandler();
+        if (isset($data['guest_id']) && $data['guest_id']) {
+            $guestId = (int)$data['guest_id'];
+        } else {
+            // Create new guest
+            $guestResult = $guestHandler->create($data);
+            if (!$guestResult['success']) {
+                return $guestResult;
             }
-            
-            // Check room availability if room assigned (WITH LOCK)
-            if (!empty($data['room_id'])) {
-                // LOCK the room row to prevent double booking
-                $this->db->queryOne("SELECT id FROM rooms WHERE id = :id FOR UPDATE", ['id' => $data['room_id']]);
-                
-                if (!$this->isRoomAvailable((int)$data['room_id'], $data['check_in_date'], $data['check_out_date'])) {
-                    $this->db->rollback();
-                    return ['success' => false, 'error' => 'Room is not available for selected dates'];
-                }
+            $guestId = $guestResult['id'];
+        }
+        
+        // 2. Validate Dates
+        $checkIn = $data['check_in_date'];
+        $checkOut = $data['check_out_date'];
+        
+        // Phase 0 Validation: CheckIn < CheckOut
+        if (strtotime($checkIn) >= strtotime($checkOut)) {
+            return ['success' => false, 'error' => 'Check-out date must be after check-in date'];
+        }
+        
+        // 3. Validate Room Availability
+        $roomTypeId = (int)$data['room_type_id'];
+        $roomId = !empty($data['room_id']) ? (int)$data['room_id'] : null; // Optional at booking time
+        
+        if ($roomId) {
+            if (!$this->isRoomAvailable($roomId, $checkIn, $checkOut)) {
+                return ['success' => false, 'error' => 'Selected room is not available for these dates'];
             }
-            
-            // Generate booking number
-            $bookingNumber = $this->generateBookingNumber();
-            $uuid = $this->generateUuid();
-            
-            // Calculate nights and room total
-            $nights = $this->calculateNights($data['check_in_date'], $data['check_out_date']);
-            $roomTotal = (float)$data['rate_per_night'] * $nights;
-            
-            // Prepare insert data
-            // FIX: Start with 0 paid. We will add payment via PaymentHandler
-            $insertData = [
+        }
+        
+        // 4. Calculate Financials
+        $nights = $this->calculateNights($checkIn, $checkOut);
+        
+        // Get base rate from room type if not overridden
+        $ratePerNight = (float)$data['rate_per_night']; // Should be validated
+        
+        // Discount logic
+        $discountAmount = 0;
+        if (!empty($data['discount_type']) && !empty($data['discount_value'])) {
+             // Logic for percent vs fixed
+             if ($data['discount_type'] === 'percent') {
+                 $discountAmount = ($ratePerNight * $nights) * ((float)$data['discount_value'] / 100);
+             } else {
+                 $discountAmount = (float)$data['discount_value'];
+             }
+        }
+        
+        $roomTotal = ($ratePerNight * $nights);
+        $taxableAmount = $roomTotal - $discountAmount;
+        
+        // Calculate GST (Estimate)
+        // TaxHandler handles logic (0-1000=0%, 1001-7500=12%, >7500=18%)
+        $taxHandler = new TaxHandler();
+        $taxResult = $taxHandler->calculate($taxableAmount, $ratePerNight);
+        
+        $grandTotal = $taxableAmount + $taxResult['total_tax'];
+        
+        // 5. Create Booking
+        $bookingNumber = $this->generateBookingNumber();
+        $status = 'confirmed'; // Default
+        
+        $this->db->execute(
+            "INSERT INTO bookings 
+             (tenant_id, booking_number, guest_id, room_type_id, room_id, 
+              check_in_date, check_out_date, status, 
+              adults, children, rate_per_night, 
+              room_total, discount_type, discount_value, discount_amount,
+              taxable_amount, gst_rate, cgst_amount, sgst_amount, tax_total, 
+              extra_charges, grand_total, paid_amount, payment_status,
+              created_by, created_at)
+             VALUES 
+             (:tenant_id, :booking_number, :guest_id, :room_type_id, :room_id,
+              :check_in, :check_out, :status,
+              :adults, :children, :rate,
+              :room_total, :disc_type, :disc_val, :disc_amt,
+              :taxable, :gst_rate, :cgst, :sgst, :tax_total,
+              0, :grand_total, 0, 'pending',
+              :created_by, NOW())",
+            [
                 'tenant_id' => $tenantId,
-                'uuid' => $uuid,
                 'booking_number' => $bookingNumber,
-                'guest_id' => (int)$data['guest_id'],
-                'room_id' => !empty($data['room_id']) ? (int)$data['room_id'] : null,
-                'room_type_id' => (int)$data['room_type_id'],
-                'check_in_date' => $data['check_in_date'],
-                'check_out_date' => $data['check_out_date'],
+                'guest_id' => $guestId,
+                'room_type_id' => $roomTypeId,
+                'room_id' => $roomId,
+                'check_in' => $checkIn,
+                'check_out' => $checkOut,
+                'status' => $status,
                 'adults' => (int)($data['adults'] ?? 1),
                 'children' => (int)($data['children'] ?? 0),
-                'rate_per_night' => (float)$data['rate_per_night'],
+                'rate' => $ratePerNight,
                 'room_total' => $roomTotal,
-                'grand_total' => $roomTotal,  // Will be updated with tax at checkout
-                'paid_amount' => 0.00,        // FIX: Handled by PaymentHandler
-                'payment_status' => 'pending', // FIX: Default to pending
-                'status' => $data['status'] ?? 'confirmed',
-                'source' => $data['source'] ?? 'walk_in',
-                'source_reference' => $data['source_reference'] ?? null,
-                'special_requests' => $data['special_requests'] ?? null,
-                'created_by' => $data['created_by'] ?? null,
-            ];
-
-            $columns = implode(', ', array_keys($insertData));
-            $placeholders = ':' . implode(', :', array_keys($insertData));
-            
-            $this->db->execute(
-                "INSERT INTO bookings ({$columns}) VALUES ({$placeholders})",
-                $insertData,
-                enforceTenant: false
+                'disc_type' => $data['discount_type'] ?? null,
+                'disc_val' => $data['discount_value'] ?? 0,
+                'disc_amt' => $discountAmount,
+                'taxable' => $taxableAmount,
+                'gst_rate' => $taxResult['rate'],
+                'cgst' => $taxResult['cgst'],
+                'sgst' => $taxResult['sgst'],
+                'tax_total' => $taxResult['total_tax'],
+                'grand_total' => $grandTotal,
+                'created_by' => $userId
+            ],
+            enforceTenant: false
+        );
+        
+        $bookingId = $this->db->lastInsertId();
+        
+        // 6. Handle Advance Payment
+        if (!empty($data['advance_amount']) && (float)$data['advance_amount'] > 0) {
+            $paymentHandler = new PaymentHandler();
+            $paymentHandler->recordPayment(
+                (int)$bookingId,
+                (float)$data['advance_amount'],
+                $data['payment_mode'] ?? 'cash',
+                $data['payment_reference'] ?? null,
+                'Advance Payment',
+                $userId
             );
-            
-            $bookingId = (int)$this->db->lastInsertId();
-            
-            // Update room status if room assigned
-            if (!empty($data['room_id'])) {
-                $this->db->execute(
-                    "UPDATE rooms SET status = 'reserved' WHERE id = :id",
-                    ['id' => $data['room_id']]
-                );
-            }
-
-            // CRITICAL FIX: Handle Advance Payment via Transaction
-            $advanceAmount = (float)($data['advance_amount'] ?? 0);
-            if ($advanceAmount > 0) {
-                // Must commit the booking first effectively? 
-                // Checks if PaymentHandler uses its own transaction. It does.
-                // Since PaymentHandler uses transaction, and we are in one...
-                // Nested transactions in MySQL via PDO are not supported directly unless we use SAVEPOINT.
-                // However, PaymentHandler::recordPayment starts a transaction.
-                // To avoid conflict, commit here or refactor PaymentHandler to NOT start transaction if one exists?
-                // Simplest: PaymentHandler is atomic. We should verify if DB class supports nested.
-                // Assuming Database::beginTransaction() checks `inTransaction()`.
-                // Let's assume for now we need to commit booking before payment to be safe with IDs.
-                
-                $this->db->commit(); 
-                
-                // Now record payment
-                $paymentHandler = new PaymentHandler();
-                $paymentResult = $paymentHandler->recordPayment(
-                    $bookingId,
-                    $advanceAmount,
-                    $data['payment_mode'] ?? 'cash',
-                    $data['payment_reference'] ?? null,
-                    'Advance Payment during Booking',
-                    $data['created_by'] ?? null
-                );
-                
-                if (!$paymentResult['success']) {
-                    // Payment failed but booking created.
-                    // Ideally we should rollback booking, but we just committed.
-                    // This is a trade-off. We'll log error.
-                    error_log("Payment failed for Booking $bookingId: " . $paymentResult['error']);
-                }
-            } else {
-                $this->db->commit();
-            }
-            
-            // Audit Log
-            $this->auth->logAudit('create', 'booking', $bookingId);
-            
-            return [
-                'success' => true,
-                'booking_id' => $bookingId,
-                'booking_number' => $bookingNumber
-            ];
-            
-        } catch (\Throwable $e) {
-            if ($this->db->inTransaction()) {
-                $this->db->rollback();
-            }
-            error_log("Booking creation error: " . $e->getMessage());
-            return ['success' => false, 'error' => 'Failed to create booking: ' . $e->getMessage()];
         }
+        
+        // Audit log
+        $this->auth->logAudit('create', 'booking', (int)$bookingId);
+
+        // Phase 3: Module 2 - WhatsApp Notification
+        try {
+            // Re-fetch minimal data for notification
+            $notifData = [
+                'id' => $bookingId,
+                'guest_name' => $data['first_name'] . ' ' . ($data['last_name'] ?? ''),
+                'guest_phone' => $data['phone'] ?? '',
+                'hotel_name' => TenantContext::attr('name'),
+                'check_in_date' => $checkIn,
+                'check_out_date' => $checkOut
+            ];
+            \HotelOS\Core\WhatsAppService::getInstance()->sendBookingConfirmation($notifData);
+        } catch (\Throwable $e) {
+            // Non-blocking notification failure
+            error_log("WhatsApp Trigger Failed: " . $e->getMessage());
+        }
+        
+        return ['success' => true, 'id' => $bookingId];
     }
     
     /**
      * Check-in a guest
      * 
      * @param int $id Booking ID
-     * @param int|null $roomId Room to assign (if not already)
+     * @param int|null $roomId Assign room if not already assigned
      * @return array Result
      */
     public function checkIn(int $id, ?int $roomId = null): array
@@ -273,22 +288,19 @@ class BookingHandler
         }
         
         if ($booking['status'] === 'checked_in') {
-            return ['success' => false, 'error' => 'Guest already checked in'];
+            return ['success' => false, 'error' => 'Guest is already checked in'];
         }
         
-        if ($booking['status'] !== 'confirmed' && $booking['status'] !== 'pending') {
-            return ['success' => false, 'error' => 'Cannot check-in: booking is ' . $booking['status']];
-        }
-        
-        // Assign room if provided
+        // Assign Room Logic
         $roomUpdate = '';
         $params = ['id' => $id];
         
         if ($roomId) {
-            // Check availability
+            // Verify room availability again
             if (!$this->isRoomAvailable($roomId, $booking['check_in_date'], $booking['check_out_date'], $id)) {
-                return ['success' => false, 'error' => 'Selected room is not available'];
+                 return ['success' => false, 'error' => 'Room is not available'];
             }
+            
             $roomUpdate = ', room_id = :room_id';
             $params['room_id'] = $roomId;
             
@@ -308,21 +320,33 @@ class BookingHandler
         
         // Audit Log
         $this->auth->logAudit('check_in', 'booking', $id);
+
+        // Phase 3: WhatsApp Welcome
+        try {
+             $bFull = $this->getById($id);
+             $notifData = [
+                'guest_name' => $bFull['first_name'],
+                'guest_phone' => $bFull['phone'],
+                'hotel_name' => TenantContext::attr('name')
+             ];
+             \HotelOS\Core\WhatsAppService::getInstance()->sendWelcome($notifData);
+        } catch (\Throwable $e) {}
         
         return ['success' => true];
     }
     
     /**
-     * Check-out a guest
-     * Calculates final bill with GST
+     * Check-out a guest (Phase 2: Revenue Leak Protected)
+     * Calculates final bill, Checks balance, Commits updates.
      * 
      * @param int $id Booking ID
      * @param float $extraCharges Additional charges (minibar, laundry, etc.)
      * @param float $lateCheckoutFee Manual late checkout fee (0 for auto-calc)
      * @param array|null $paymentData Optional final payment ['amount', 'mode', 'reference']
+     * @param bool $allowCredit Allow checkout with pending balance (Manager Override)
      * @return array Result with final amounts
      */
-    public function checkOut(int $id, float $extraCharges = 0, float $lateCheckoutFee = 0, ?array $paymentData = null): array
+    public function checkOut(int $id, float $extraCharges = 0, float $lateCheckoutFee = 0, ?array $paymentData = null, bool $allowCredit = false): array
     {
         $booking = $this->getById($id);
         
@@ -334,8 +358,45 @@ class BookingHandler
             return ['success' => false, 'error' => 'Guest is not checked in'];
         }
 
-        // FIX: Handle Final Payment if provided
+        // 1. Calculate Late Fees & Totals (Dry Run)
+        $timezone = TenantContext::attr('timezone', 'Asia/Kolkata');
+        try {
+            $now = new \DateTime('now', new \DateTimeZone($timezone));
+        } catch (\Exception $e) {
+            $now = new \DateTime('now'); // Fallback
+        }
+        
+        $checkoutHour = (int)$now->format('H');
+        $calculatedLateFee = 0;
+        
+        if ($lateCheckoutFee > 0) {
+            $calculatedLateFee = $lateCheckoutFee;
+        } else {
+            $settings = $this->settings->getSettings();
+            $lateCheckoutTime = (int)($settings['late_checkout_threshold'] ?? 14); 
+            $lateCheckoutPct = (float)($settings['late_checkout_percent'] ?? 50);
+            
+            if ($checkoutHour >= $lateCheckoutTime) {
+                $calculatedLateFee = (float)$booking['rate_per_night'] * ($lateCheckoutPct / 100);
+            }
+        }
+        
+        $projectedExtraCharges = $extraCharges > 0 ? $extraCharges : (float)($booking['extra_charges'] ?? 0);
+        $projectedExtraCharges += $calculatedLateFee;
+        
+        // Calculate projected totals
+        $taxableAmount = (float)$booking['room_total'] + $projectedExtraCharges - (float)($booking['discount_amount'] ?? 0);
+        
+        // GST Calc
+        $isTaxExempt = !empty($booking['tax_exempt']);
+        $taxHandler = new TaxHandler();
+        $taxResult = $taxHandler->calculate($taxableAmount, (float)$booking['rate_per_night'], $isTaxExempt);
+        $projectedGrandTotal = $taxableAmount + $taxResult['total_tax'];
+
+        // 2. Handle Payment (If provided in checkout flow)
+        $currentPaid = (float)$booking['paid_amount'];
         if (!empty($paymentData) && isset($paymentData['amount']) && (float)$paymentData['amount'] > 0) {
+            // Note: We process payment FIRST to see if it clears balance
             $paymentHandler = new PaymentHandler();
             $payResult = $paymentHandler->recordPayment(
                 $id,
@@ -349,136 +410,99 @@ class BookingHandler
             if (!$payResult['success']) {
                 return ['success' => false, 'error' => "Payment failed: " . $payResult['error']];
             }
-            
-            // Refresh booking to get updated paid_amount
-            $booking = $this->getById($id);
+            $currentPaid += (float)$paymentData['amount'];
         }
+
+        // 3. Revenue Leak Check (The Guard)
+        $remainingBalance = round($projectedGrandTotal - $currentPaid, 2);
         
-        // Calculate late checkout fee based on settings
-        $timezone = TenantContext::attr('timezone', 'Asia/Kolkata');
-        $now = new \DateTime('now', new \DateTimeZone($timezone));
-        $checkoutHour = (int)$now->format('H');
-        $calculatedLateFee = 0;
-        
-        if ($lateCheckoutFee > 0) {
-            // Manual override
-            $calculatedLateFee = $lateCheckoutFee;
-        } else {
-            // Get settings (Defaults: 14:00 check out triggers 50%)
-            $settings = $this->settings->getSettings();
-            $lateCheckoutTime = (int)($settings['late_checkout_threshold'] ?? 14); 
-            $lateCheckoutPct = (float)($settings['late_checkout_percent'] ?? 50);
-            
-            if ($checkoutHour >= $lateCheckoutTime) {
-                $calculatedLateFee = (float)$booking['rate_per_night'] * ($lateCheckoutPct / 100);
+        // Tolerance for floating point (0.50 INR)
+        if ($remainingBalance > 1.0 && !$allowCredit) {
+            return [
+                'success' => false, 
+                'error' => "Outstanding balance: ₹" . number_format($remainingBalance, 2) . ". Payment required before checkout.",
+                'balance' => $remainingBalance,
+                'requires_override' => true
+            ];
+        }
+
+        // 4. Commit Checkout Updates
+        try {
+            $this->db->beginTransaction();
+
+            // Update bookings extra charges first
+            if ($projectedExtraCharges != ($booking['extra_charges'] ?? 0)) {
+                $this->db->execute(
+                    "UPDATE bookings SET extra_charges = :extra WHERE id = :id",
+                    ['id' => $id, 'extra' => $projectedExtraCharges]
+                );
             }
-        }
-        
-        // Use passed extra charges or existing
-        $totalExtraCharges = $extraCharges > 0 ? $extraCharges : (float)($booking['extra_charges'] ?? 0);
-        $totalExtraCharges += $calculatedLateFee;
-        
-        // Update extra_charges in booking if new charges added
-        if ($extraCharges > 0 || $calculatedLateFee > 0) {
+
             $this->db->execute(
-                "UPDATE bookings SET extra_charges = :extra WHERE id = :id",
-                ['id' => $id, 'extra' => $totalExtraCharges]
+                "UPDATE bookings SET 
+                 status = 'checked_out',
+                 actual_check_out = NOW(),
+                 taxable_amount = :taxable,
+                 gst_rate = :gst_rate,
+                 cgst_amount = :cgst,
+                 sgst_amount = :sgst,
+                 tax_total = :tax_total,
+                 grand_total = :grand_total,
+                 payment_status = CASE 
+                     WHEN paid_amount >= :grand_total THEN 'paid'
+                     ELSE 'partial'
+                 END
+                 WHERE id = :id",
+                [
+                    'id' => $id,
+                    'taxable' => $taxableAmount,
+                    'gst_rate' => $taxResult['rate'],
+                    'cgst' => $taxResult['cgst'],
+                    'sgst' => $taxResult['sgst'],
+                    'tax_total' => $taxResult['total_tax'],
+                    'grand_total' => $projectedGrandTotal
+                ]
             );
+            
+            // Release Room
+            if ($booking['room_id']) {
+                // Phase 2 Automation: Room becomes 'dirty' automatically
+                $this->db->execute(
+                    "UPDATE rooms SET status = 'available', housekeeping_status = 'dirty' WHERE id = :id",
+                    ['id' => $booking['room_id']]
+                );
+            }
+            
+            // Update Stats
+            $guestHandler = new GuestHandler();
+            $guestHandler->updateStayStats((int)$booking['guest_id'], $projectedGrandTotal);
+            
+            // Audit Log
+            $this->auth->logAudit('check_out', 'booking', $id, [], ['balance' => $remainingBalance]);
+            
+            $this->db->commit();
+            
+            // Phase 3: WhatsApp Thank You
+            try {
+                $bFull = $this->getById($id);
+                $notifData = [
+                    'guest_name' => $bFull['first_name'],
+                    'guest_phone' => $bFull['phone'],
+                    'hotel_name' => TenantContext::attr('name')
+                ];
+                \HotelOS\Core\WhatsAppService::getInstance()->sendThankYou($notifData);
+            } catch (\Throwable $e) {}
+            
+            return [
+                'success' => true,
+                'grand_total' => $projectedGrandTotal,
+                'balance' => $remainingBalance
+            ];
+
+        } catch (\Throwable $e) {
+            $this->db->rollback();
+            return ['success' => false, 'error' => $e->getMessage()];
         }
-        
-        // Calculate final amounts with GST using settings
-        $taxableAmount = (float)$booking['room_total'] + $totalExtraCharges - (float)($booking['discount_amount'] ?? 0);
-        
-        // Check for tax exemption flag
-        $isTaxExempt = !empty($booking['tax_exempt']);
-        
-        // Dynamic GST Calculation
-        // Dynamic GST Calculation via TaxHandler
-        $taxHandler = new TaxHandler();
-        $taxResult = $taxHandler->calculate(
-            $taxableAmount, 
-            (float)$booking['rate_per_night'], 
-            $isTaxExempt
-        );
-        
-        $gstRate = $taxResult['rate'];
-        $cgst = $taxResult['cgst'];
-        $sgst = $taxResult['sgst'];
-        $totalTax = $taxResult['total_tax'];
-        $grandTotal = $taxableAmount + $totalTax;
-        
-        // Update booking
-        $this->db->execute(
-            "UPDATE bookings SET 
-             status = 'checked_out',
-             actual_check_out = NOW(),
-             extra_charges = :extra,
-             taxable_amount = :taxable,
-             gst_rate = :gst_rate,
-             cgst_amount = :cgst,
-             sgst_amount = :sgst,
-             tax_total = :tax_total,
-             grand_total = :grand_total,
-             payment_status = CASE 
-                 WHEN paid_amount >= :grand_total THEN 'paid'
-                 WHEN paid_amount > 0 THEN 'partial'
-                 ELSE 'pending'
-             END
-             WHERE id = :id",
-            [
-                'id' => $id,
-                'extra' => $totalExtraCharges,
-                'taxable' => $taxableAmount,
-                'gst_rate' => $gstRate,
-                'cgst' => $cgst,
-                'sgst' => $sgst,
-                'tax_total' => $totalTax,
-                'grand_total' => $grandTotal
-            ]
-        );
-        
-        // Free up the room
-        if ($booking['room_id']) {
-            $this->db->execute(
-                "UPDATE rooms SET status = 'available', housekeeping_status = 'dirty' WHERE id = :id",
-                ['id' => $booking['room_id']]
-            );
-        }
-        
-        // Update guest stats
-        $guestHandler = new GuestHandler();
-        $guestHandler->updateStayStats((int)$booking['guest_id'], $grandTotal);
-        
-        // Audit Log with financial diff tracking
-        $this->auth->logAudit(
-            'check_out', 
-            'booking', 
-            $id,
-            [
-                'paid_amount' => (float)$booking['paid_amount'],
-                'grand_total' => (float)($booking['grand_total'] ?? 0),
-                'extra_charges' => (float)($booking['extra_charges'] ?? 0),
-                'status' => $booking['status']
-            ],
-            [
-                'paid_amount' => (float)$booking['paid_amount'],
-                'grand_total' => $grandTotal,
-                'extra_charges' => $totalExtraCharges,
-                'status' => 'checked_out'
-            ]
-        );
-        
-        return [
-            'success' => true,
-            'extra_charges' => $totalExtraCharges,
-            'late_fee' => $calculatedLateFee,
-            'taxable_amount' => $taxableAmount,
-            'gst_rate' => $gstRate,
-            'cgst' => $cgst,
-            'sgst' => $sgst,
-            'grand_total' => $grandTotal,
-            'balance' => $grandTotal - (float)$booking['paid_amount']
-        ];
     }
     
     /**
@@ -866,10 +890,6 @@ class BookingHandler
             'end' => $endDateStr
         ];
     }
-}
-
-        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
-    }
     
     /**
      * Cancel a booking
@@ -967,4 +987,3 @@ class BookingHandler
         ];
     }
 }
-

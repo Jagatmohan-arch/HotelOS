@@ -126,10 +126,11 @@ $hasPending = $pendingAmount > 0;
             <?php if ($hasPending): ?>
             <!-- Payment Collection -->
             <div class="glass-card p-4 border-l-4 border-amber-500">
-                <h3 class="flex items-center gap-2 text-lg font-bold text-white mb-4">
+                <h3 class="flex items-center gap-2 text-lg font-bold text-white mb-2">
                     <i data-lucide="wallet" class="w-5 h-5 text-amber-400"></i>
-                    Collect Payment
+                    Final Settlement
                 </h3>
+                <p class="text-xs text-slate-400 mb-4">Collect remaining dues before guest checkout. This will complete the booking.</p>
                 
                 <div class="space-y-4">
                     <!-- Amount Input -->
@@ -208,8 +209,8 @@ $hasPending = $pendingAmount > 0;
                     :disabled="!canCheckout || isProcessing"
                 >
                     <span x-show="!isProcessing" class="flex items-center gap-2">
-                        <i data-lucide="log-out" class="w-5 h-5"></i>
-                        Complete Checkout
+                        <i data-lucide="check-circle" class="w-5 h-5"></i>
+                        Final Settlement & Checkout
                     </span>
                     <span x-show="isProcessing" class="flex items-center gap-2">
                         <i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i>

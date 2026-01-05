@@ -135,6 +135,7 @@ $reasonCodes = $reasonCodes ?? [];
                                 <th>Amount</th>
                                 <th>Reason</th>
                                 <th>Requested By</th>
+                                <th>Approved/Rejected By</th>
                                 <th>Status</th>
                                 <th>Credit Note</th>
                             </tr>
@@ -152,6 +153,15 @@ $reasonCodes = $reasonCodes ?? [];
                                     <td class="text-white font-semibold">₹<?= number_format((float)$refund['requested_amount'], 2) ?></td>
                                     <td class="text-slate-400 text-sm"><?= htmlspecialchars($reasonCodes[$refund['reason_code']] ?? $refund['reason_code']) ?></td>
                                     <td class="text-slate-400 text-sm"><?= htmlspecialchars($refund['requested_by_name'] ?? '-') ?></td>
+                                    <td class="text-slate-400 text-sm">
+                                        <?php if ($refund['status'] === 'approved' && !empty($refund['approved_by_name'])): ?>
+                                            <span class="text-emerald-400"><?= htmlspecialchars($refund['approved_by_name']) ?></span>
+                                        <?php elseif ($refund['status'] === 'rejected' && !empty($refund['approved_by_name'])): ?>
+                                            <span class="text-red-400"><?= htmlspecialchars($refund['approved_by_name']) ?></span>
+                                        <?php else: ?>
+                                            -
+                                        <?php endif; ?>
+                                    </td>
                                     <td>
                                         <?php
                                         $statusBadge = match($refund['status']) {

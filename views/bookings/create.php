@@ -212,8 +212,16 @@ $roomTypes = $roomTypes ?? [];
         <!-- Visual Payment Selection -->
         <h3 class="section-subtitle">Payment Details</h3>
         <div class="payment-section">
+            <!-- Contextual Label for Advance Payment -->
+            <div class="bg-emerald-900/30 border border-emerald-600/30 rounded-lg p-3 mb-4">
+                <p class="text-emerald-400 text-sm flex items-center gap-2">
+                    <i data-lucide="info" class="w-4 h-4 flex-shrink-0"></i>
+                    <span><strong>Advance Payment (Optional):</strong> Collect now to secure the booking. Remaining balance due at checkout.</span>
+                </p>
+            </div>
+            
             <div class="form-group mb-4">
-                <label>Advance Payment (₹)</label>
+                <label>Advance Amount (₹)</label>
                 <input type="number" id="advance_amount" name="advance_amount" class="form-input form-input--lg" value="0" min="0" step="100">
             </div>
             

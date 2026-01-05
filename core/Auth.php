@@ -374,6 +374,11 @@ class Auth
 
         // Set tenant context
         TenantContext::loadById($user['tenant_id']);
+        
+        // Phase 4: Chain Context
+        if (!empty($user['chain_id'])) {
+            \HotelOS\Core\ChainContext::set($user['chain_id']);
+        }
 
         // Log audit event
         $this->logAudit('login', 'user', $user['id']);
@@ -532,23 +537,18 @@ class Auth
     /**
      * Check if user can perform action
      */
+    /**
+     * Check if user can perform action
+     */
     public function can(string $permission): bool
     {
-        // Define permissions by role
-        $permissions = [
-            'view_dashboard'    => [self::ROLE_OWNER, self::ROLE_MANAGER, self::ROLE_RECEPTION],
-            'manage_bookings'   => [self::ROLE_OWNER, self::ROLE_MANAGER, self::ROLE_RECEPTION],
-            'manage_rooms'      => [self::ROLE_OWNER, self::ROLE_MANAGER],
-            'manage_users'      => [self::ROLE_OWNER],
-            'view_reports'      => [self::ROLE_OWNER, self::ROLE_MANAGER, self::ROLE_ACCOUNTANT],
-            'manage_billing'    => [self::ROLE_OWNER, self::ROLE_MANAGER, self::ROLE_ACCOUNTANT],
-            'delete_records'    => [self::ROLE_OWNER],
-            'view_audit_logs'   => [self::ROLE_OWNER],
-            'approve_discounts' => [self::ROLE_OWNER, self::ROLE_MANAGER],
-        ];
+        if (!$this->user) {
+            return false;
+        }
 
-        $allowedRoles = $permissions[$permission] ?? [];
-        return $this->user && in_array($this->user['role'], $allowedRoles, true);
+        // Phase 4: Dynamic Permission Engine (with Fallback)
+        $permHandler = new \HotelOS\Handlers\PermissionHandler();
+        return $permHandler->hasPermission($this->user['role'], $permission);
     }
 
     /**

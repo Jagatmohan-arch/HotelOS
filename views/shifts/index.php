@@ -54,7 +54,21 @@ if ($currentShift) {
                 <!-- START SHIFT STATE -->
                 <div class="text-center md:text-left">
                     <h2 class="text-lg font-bold text-gray-900 mb-2">Start Your Shift</h2>
-                    <p class="text-gray-500 text-sm mb-6">Please verify the cash in the drawer before starting.</p>
+                    <p class="text-gray-500 text-sm mb-4">Please verify the cash in the drawer before starting.</p>
+                    
+                    <!-- Onboarding Info Box -->
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 text-left">
+                        <h4 class="font-semibold text-blue-800 text-sm flex items-center gap-2">
+                            <i data-lucide="info" class="w-4 h-4"></i>
+                            Before You Start
+                        </h4>
+                        <ul class="text-sm text-blue-700 mt-2 space-y-1">
+                            <li>• Count the cash in drawer carefully</li>
+                            <li>• You will be responsible for this amount</li>
+                            <li>• You <strong>cannot logout</strong> until shift is closed</li>
+                            <li>• All cash payments will be recorded under your shift</li>
+                        </ul>
+                    </div>
                     
                     <form action="/shifts/start" method="POST" class="max-w-xs">
                         <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">

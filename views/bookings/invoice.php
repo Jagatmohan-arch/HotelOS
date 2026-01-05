@@ -60,6 +60,13 @@ $documentTitle = $showGST ? 'TAX INVOICE' : 'ESTIMATE SLIP';
             </a>
         </div>
         
+        <!-- Invoice Type Help (hidden on print) -->
+        <div class="no-print" style="max-width: 800px; margin: 0 auto 15px; padding: 10px; background: #334155; border-radius: 8px; font-size: 12px; color: #94a3b8;">
+            <strong style="color: #e2e8f0;">📋 Document Types:</strong> 
+            <strong>Tax Invoice</strong> = Official GST document for accounting | 
+            <strong>Estimate Slip</strong> = Pre-payment receipt without tax
+        </div>
+        
         <!-- Invoice Container -->
         <div class="invoice-container <?= $printMode === 'thermal' ? 'thermal' : '' ?>">
             <div class="invoice-box">

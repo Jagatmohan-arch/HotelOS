@@ -13,6 +13,7 @@ namespace HotelOS\Handlers;
 use HotelOS\Core\Database;
 use HotelOS\Core\TenantContext;
 use HotelOS\Core\Auth;
+use HotelOS\Handlers\ShiftHandler;
 
 class PaymentHandler
 {
@@ -61,9 +62,26 @@ class PaymentHandler
             return ['success' => false, 'error' => 'Payment collector not identified'];
         }
 
+        // Phase 2: Shift Guard (The Guard)
+        // Prevent collecting money if shift is not open.
+        // Exception: Online modes (Cashfree, OTA) which happen automatically.
+        $drawerModes = ['cash', 'upi', 'card', 'cheque', 'bank_transfer'];
+        if (in_array($mode, $drawerModes, true)) {
+            $shiftHandler = new ShiftHandler();
+            $activeShift = $shiftHandler->getCurrentShift($collectedBy);
+            
+            if (!$activeShift) {
+                // Strict Block
+                return [
+                    'success' => false, 
+                    'error' => 'SHIFT GUARD: You cannot collect payments without an open shift. Please start your shift first.'
+                ];
+            }
+        }
+
         // Validate booking exists
         $booking = $this->db->queryOne(
-            "SELECT id, booking_number, paid_amount, grand_total, status 
+            "SELECT id, booking_number, paid_amount, grand_total, status, check_in_date, check_out_date
              FROM bookings WHERE id = :id AND tenant_id = :tid",
             ['id' => $bookingId, 'tid' => $tenantId],
             enforceTenant: false
@@ -88,6 +106,18 @@ class PaymentHandler
                 $ledgerType = 'credit_ledger';
             }
 
+            // Phase 2: Smart Payment Labels (Auto-Tagging logic)
+            // Logic: Detect context based on booking status and timing
+            $category = 'room_payment'; // Default fallback
+            
+            if ($booking['status'] === 'confirmed') {
+                $category = 'Advance';
+            } elseif ($booking['status'] === 'checked_in') {
+                $category = 'Mid-Stay'; 
+            } elseif ($booking['status'] === 'checked_out') {
+                $category = 'Final Settlement';
+            }
+
             // 1. Create Transaction Record
             $txNumber = $this->generateTransactionNumber();
             $uuid = $this->generateUuid();
@@ -97,7 +127,7 @@ class PaymentHandler
                 (tenant_id, uuid, transaction_number, booking_id, amount, type, ledger_type, category, 
                  payment_mode, reference_number, collected_by, collected_at, notes)
                  VALUES 
-                (:tid, :uuid, :tx_num, :bid, :amount, 'credit', :ledger, 'room_payment',
+                (:tid, :uuid, :tx_num, :bid, :amount, 'credit', :ledger, :category,
                  :mode, :ref, :uid, NOW(), :notes)",
                 [
                     'tid' => $tenantId,
@@ -106,6 +136,7 @@ class PaymentHandler
                     'bid' => $bookingId,
                     'amount' => $amount,
                     'ledger' => $ledgerType,
+                    'category' => $category,
                     'mode' => $mode,
                     'ref' => $reference,
                     'uid' => $collectedBy,

@@ -50,6 +50,49 @@ class DashboardHandler
     }
     
     /**
+     * Module 4: Intelligent Daily Digest
+     * "Reporting That Thinks"
+     */
+    public function getDailyDigest(): array
+    {
+        $tenantId = TenantContext::getId();
+        
+        // 1. Financial Health
+        $revenue = $this->getTodayRevenue();
+        
+        // 2. Security Alerts (Role Misuse)
+        $securityAlerts = $this->db->queryOne(
+            "SELECT COUNT(*) as count FROM audit_logs 
+             WHERE tenant_id = :tid 
+               AND event_type = 'forbidden_access' 
+               AND DATE(created_at) = CURDATE()",
+            ['tid' => $tenantId],
+            enforceTenant: false
+        );
+
+        // 3. Stale Shifts (Open > 12 hours)
+        $staleShifts = $this->db->queryOne(
+            "SELECT COUNT(*) as count FROM shifts 
+             WHERE tenant_id = :tid 
+               AND status = 'OPEN' 
+               AND shift_start_at < DATE_SUB(NOW(), INTERVAL 12 HOUR)",
+            ['tid' => $tenantId],
+            enforceTenant: false
+        );
+        
+        // 4. Occupancy Trend
+        $stats = $this->getStats();
+        
+        return [
+            'revenue' => $revenue,
+            'security_alerts' => (int)($securityAlerts['count'] ?? 0),
+            'stale_shifts' => (int)($staleShifts['count'] ?? 0),
+            'occupancy' => $stats['occupancy'],
+            'generated_at' => date('d M Y, H:i')
+        ];
+    }
+    
+    /**
      * Get total room count
      */
     public function getTotalRooms(): int

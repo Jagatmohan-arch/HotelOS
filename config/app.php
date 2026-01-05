@@ -64,6 +64,18 @@ return [
         'avatar_max_size'  => 1 * 1024 * 1024, // 1MB
     ],
     
+    // Mail Configuration (SMTP)
+    'mail' => [
+        'driver'     => getenv('MAIL_DRIVER') ?: 'log', // 'smtp' or 'log' (for testing)
+        'host'       => getenv('MAIL_HOST') ?: 'smtp.gmail.com',
+        'port'       => (int)(getenv('MAIL_PORT') ?: 587),
+        'username'   => getenv('MAIL_USERNAME') ?: '',
+        'password'   => getenv('MAIL_PASSWORD') ?: '',
+        'encryption' => getenv('MAIL_ENCRYPTION') ?: 'tls',
+        'from_name'  => getenv('MAIL_FROM_NAME') ?: 'HotelOS',
+        'from_email' => getenv('MAIL_FROM') ?: 'noreply@hotelos.in',
+    ],
+    
     // Cache Configuration
     'cache' => [
         'driver'   => 'file',

@@ -270,6 +270,53 @@ class SubscriptionHandler
     }
     
     /**
+     * Get current plan slug (for SubscriptionMiddleware)
+     * 
+     * @return string Plan slug (trial, starter, professional, enterprise)
+     */
+    public function getCurrentPlan(): string
+    {
+        $subscription = $this->getCurrentSubscription();
+        return $subscription['plan'] ?? 'trial';
+    }
+    
+    /**
+     * Check if trial is currently active (not expired)
+     * Used by SubscriptionMiddleware for trial banner
+     * 
+     * @return bool True if on trial and not expired
+     */
+    public function isTrialActive(): bool
+    {
+        $subscription = $this->getCurrentSubscription();
+        return $subscription['is_trial'] && !$subscription['is_expired'];
+    }
+    
+    /**
+     * Get days remaining in trial (for banner display)
+     * Wrapper for getDaysRemaining with auto-tenant lookup
+     * 
+     * @return int Days remaining (0 if expired)
+     */
+    public function getTrialDaysRemaining(): int
+    {
+        $subscription = $this->getCurrentSubscription();
+        return $subscription['days_remaining'] ?? 0;
+    }
+    
+    /**
+     * Check if feature is accessible in current plan
+     * Alias for hasFeature() - used by SubscriptionMiddleware
+     * 
+     * @param string $feature Feature key (e.g., 'reports', 'pos')
+     * @return bool True if feature is available
+     */
+    public function hasFeatureAccess(string $feature): bool
+    {
+        return $this->hasFeature($feature);
+    }
+    
+    /**
      * Check if feature is available in current plan
      */
     public function hasFeature(string $feature): bool

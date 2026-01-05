@@ -24,10 +24,10 @@ $recentLogs = $recentLogs ?? [];
                 <i data-lucide="settings-2" class="w-6 h-6 text-white"></i>
             </div>
             <div>
-                <h1 class="text-2xl font-bold text-white">Hotel Engine</h1>
+                <h1 class="text-2xl font-bold text-white">Owner Control Center</h1>
                 <p class="text-red-400 text-sm flex items-center gap-1">
                     <i data-lucide="shield-alert" class="w-4 h-4"></i>
-                    Owner-Only Super Control
+                    Owner-Only Admin Panel
                 </p>
             </div>
         </div>
@@ -104,7 +104,7 @@ $recentLogs = $recentLogs ?? [];
                     <i data-lucide="users-cog" class="w-6 h-6 text-emerald-400"></i>
                 </div>
                 <div>
-                    <h3 class="text-white font-semibold">Staff Engine</h3>
+                    <h3 class="text-white font-semibold">Staff Controls</h3>
                     <p class="text-slate-400 text-sm">PIN, Block, Force Logout</p>
                 </div>
             </div>
@@ -152,7 +152,7 @@ $recentLogs = $recentLogs ?? [];
     
     <!-- Recent Engine Actions -->
     <?php if (!empty($recentLogs)): ?>
-    <h2 class="text-lg font-semibold text-white mb-4">Recent Engine Actions</h2>
+    <h2 class="text-lg font-semibold text-white mb-4">Recent Control Center Actions</h2>
     <div class="glass-card overflow-hidden">
         <div class="overflow-x-auto">
             <table class="data-table">

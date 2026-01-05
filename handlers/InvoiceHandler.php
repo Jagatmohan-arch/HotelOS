@@ -204,7 +204,10 @@ class InvoiceHandler
         $data = $this->getInvoiceData($bookingId);
         
         if (!$data) {
-            die('Invoice not found');
+            http_response_code(404);
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => 'Invoice not found']);
+            return;
         }
         
         $html = $this->buildInvoiceHTML($data);
