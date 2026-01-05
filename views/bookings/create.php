@@ -497,8 +497,12 @@ $roomTypes = $roomTypes ?? [];
     transition: all 0.2s;
 }
 
-.room-card:hover { border-color: rgba(34, 211, 238, 0.5); }
-.room-card.selected { border-color: #22d3ee; background: rgba(34, 211, 238, 0.1); }
+.room-card:hover { border-color: rgba(34, 211, 238, 0.5); transform: translateY(-2px); }
+.room-card.selected { 
+    border-color: #22d3ee; 
+    background: rgba(34, 211, 238, 0.15); 
+    box-shadow: 0 0 15px rgba(34, 211, 238, 0.2); 
+}
 
 .room-card__number {
     font-size: 1.25rem;
@@ -518,198 +522,23 @@ $roomTypes = $roomTypes ?? [];
     font-weight: 600;
 }
 
-.summary-card {
-    padding: 1.5rem;
-    background: rgba(15, 23, 42, 0.5);
-    border-radius: 0.75rem;
-    margin-bottom: 1.5rem;
-}
-
-.summary-card h3 {
-    color: #f1f5f9;
-    margin-bottom: 1rem;
-}
-
-.summary-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.summary-row:last-child { border-bottom: none; font-weight: 600; }
-
-.panel-actions {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 2rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.btn--success {
-    background: linear-gradient(135deg, #22c55e, #16a34a);
-    color: white;
-}
-
-.btn--lg { padding: 1rem 2rem; font-size: 1rem; }
-
-.text-muted { color: #64748b; }
-
-/* OCR Section */
-.ocr-section {
-    margin: 1.5rem 0;
-}
-
-.ocr-divider {
-    display: flex;
-    align-items: center;
-    margin-bottom: 1rem;
-}
-
-.ocr-divider::before,
-.ocr-divider::after {
-    content: '';
-    flex: 1;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.ocr-divider span {
-    padding: 0 1rem;
-    color: #64748b;
-    font-size: 0.85rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-</style>
-
-<script>
-let currentStep = 1;
-let selectedGuest = null;
-let selectedRoom = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-    // Set default dates
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    document.getElementById('check_in_date').value = today.toISOString().split('T')[0];
-    document.getElementById('check_out_date').value = tomorrow.toISOString().split('T')[0];
-    
-    // Load room types
-    loadRoomTypes();
-    
-    // Initialize OCR Upload Component
-    initOCRUpload();
-    
-    // Debounced phone search
-    let debounceTimer;
-    document.getElementById('phone').addEventListener('input', function(e) {
-        clearTimeout(debounceTimer);
-        const phone = e.target.value.replace(/\D/g, '');
-        
-        if (phone.length >= 4) {
-            debounceTimer = setTimeout(() => searchGuests(phone), 500);
-        } else {
-            document.getElementById('guest-results').style.display = 'none';
-        }
-    });
-    
-    // Form submission
-    document.getElementById('booking-form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        createBooking();
-    });
-});
-
-function loadRoomTypes() {
-    fetch('/api/room-types')
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) {
-                const select = document.getElementById('room_type_id');
-                data.data.forEach(rt => {
-                    select.innerHTML += `<option value="${rt.id}">${rt.name} (₹${rt.base_rate}/night)</option>`;
-                });
-            }
-        });
-}
-
-function searchGuests(phone) {
-    fetch(`/api/guests/search?q=${phone}`)
-        .then(r => r.json())
-        .then(data => {
-            const container = document.getElementById('guest-results');
-            
-            if (data.success && data.data.length > 0) {
-                container.innerHTML = data.data.map(g => `
-                    <div class="guest-result-item" onclick="selectGuest(${JSON.stringify(g).replace(/"/g, '&quot;')})">
-                        <div>
-                            <strong>${g.first_name} ${g.last_name}</strong>
-                            <br><small>${g.phone} | ${g.total_stays} stays</small>
-                        </div>
-                        <span class="badge">${g.category}</span>
-                    </div>
-                `).join('');
-                container.innerHTML += `
-                    <div class="guest-result-item" onclick="createNewGuest('${phone}')">
-                        <strong>+ Add New Guest</strong>
-                    </div>
-                `;
-                container.style.display = 'block';
-            } else {
-                container.innerHTML = `
-                    <div class="guest-result-item" onclick="createNewGuest('${phone}')">
-                        <strong>+ Add New Guest with ${phone}</strong>
-                    </div>
-                `;
-                container.style.display = 'block';
-            }
-        });
-}
-
-function selectGuest(guest) {
-    selectedGuest = guest;
-    document.getElementById('guest_id').value = guest.id;
-    document.getElementById('phone').value = guest.phone;
-    document.getElementById('guest-results').style.display = 'none';
-    document.getElementById('guest-form').style.display = 'block';
-    
-    // Fill form
-    document.getElementById('first_name').value = guest.first_name;
-    document.getElementById('last_name').value = guest.last_name || '';
-    document.getElementById('email').value = guest.email || '';
-    
-    // Disable editing for existing guests
-    document.getElementById('first_name').readOnly = true;
-    document.getElementById('last_name').readOnly = true;
-}
-
-function createNewGuest(phone) {
-    selectedGuest = null;
-    document.getElementById('guest_id').value = '';
-    document.getElementById('phone').value = phone;
-    document.getElementById('guest-results').style.display = 'none';
-    document.getElementById('guest-form').style.display = 'block';
-    
-    // Enable editing
-    document.getElementById('first_name').readOnly = false;
-    document.getElementById('last_name').readOnly = false;
-    document.getElementById('first_name').value = '';
-    document.getElementById('last_name').value = '';
-    document.getElementById('email').value = '';
-}
+/* ... existing code ... */
 
 function searchAvailableRooms() {
     const checkIn = document.getElementById('check_in_date').value;
     const checkOut = document.getElementById('check_out_date').value;
     const roomTypeId = document.getElementById('room_type_id').value;
+    const btn = event.currentTarget || document.querySelector('#panel-2 button[onclick="searchAvailableRooms()"]');
     
     if (!checkIn || !checkOut) {
         alert('Please select check-in and check-out dates');
         return;
     }
+
+    // UX: Loading State
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Searching...';
+    btn.disabled = true;
     
     let url = `/api/rooms/available?check_in=${checkIn}&check_out=${checkOut}`;
     if (roomTypeId) url += `&room_type_id=${roomTypeId}`;
@@ -730,6 +559,10 @@ function searchAvailableRooms() {
             } else {
                 container.innerHTML = '<p class="text-center text-muted">No rooms available for selected dates</p>';
             }
+        })
+        .finally(() => {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
         });
 }
 
@@ -741,6 +574,9 @@ function selectRoom(id, number, type, rate) {
     // Update UI
     document.querySelectorAll('.room-card').forEach(card => card.classList.remove('selected'));
     event.currentTarget.classList.add('selected');
+
+    // UX: Tactile Feedback
+    if (navigator.vibrate) navigator.vibrate(10);
 }
 
 function nextStep(step) {
