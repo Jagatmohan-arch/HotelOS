@@ -17,15 +17,59 @@ $status = [
 
 $hasError = false;
 
-// 1. Check Database
+// 1. Load Dependencies & Environment
 try {
-    require_once __DIR__ . '/../core/Database.php';
+    // Determine root directory
+    $rootDir = realpath(__DIR__ . '/..');
+    
+    // Autoload (for Dotenv etc.)
+    if (file_exists($rootDir . '/vendor/autoload.php')) {
+        require_once $rootDir . '/vendor/autoload.php';
+        
+        // Load .env if Dotenv exists and .env file exists
+        if (class_exists('Dotenv\Dotenv') && file_exists($rootDir . '/.env')) {
+            $dotenv = Dotenv\Dotenv::createImmutable($rootDir);
+            $dotenv->safeLoad();
+        }
+    }
+
+    // Manual include of core files if autoloader misses them or custom structure
+    // Order Matters: Database uses TenantContext
+    $coreFiles = [
+        '/core/TenantContext.php', 
+        '/core/Database.php'
+    ];
+    
+    foreach ($coreFiles as $file) {
+        if (file_exists($rootDir . $file)) {
+            require_once $rootDir . $file;
+        } else {
+            throw new Exception("Core file missing: $file");
+        }
+    }
+
+    // Connect to DB
+    if (!class_exists('\HotelOS\Core\Database')) {
+        throw new Exception("Database class not loaded");
+    }
+
     $db = \HotelOS\Core\Database::getInstance();
-    $db->query("SELECT 1");
+    
+    // Test Query (use enforceTenant: false to avoid TenantContext checks if context not set)
+    // Actually, simple SELECT 1 doesn't invoke table logic, but "injectTenantFilter" runs on ALL queries if active.
+    // TenantContext is inactive by default (null), so injectTenantFilter won't run.
+    $db->query("SELECT 1", [], false); 
+    
     $status['checks']['database'] = 'connected';
 } catch (Exception $e) {
     $status['checks']['database'] = 'error: ' . $e->getMessage();
     $hasError = true;
+    
+    // Debug info (optional, remove in strict prod)
+    $status['checks']['db_debug'] = [
+        'host' => getenv('DB_HOST') ? 'set' : 'missing',
+        'db'   => getenv('DB_NAME') ? 'set' : 'missing'
+    ];
 }
 
 // 2. Check Disk Space
