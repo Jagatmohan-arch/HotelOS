@@ -199,7 +199,7 @@ $loginType = $_GET['type'] ?? 'owner';
         </div>
         
         <!-- Version -->
-        <p class="version">v2.0 · © 2024 HotelOS</p>
+        <p class="version">v5.0 Enterprise · © 2026 HotelOS</p>
     </div>
 </div>
 
