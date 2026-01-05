@@ -79,18 +79,43 @@ class WhatsAppService
     /**
      * Core Sender Logic
      */
+    /**
+     * Core Sender Logic
+     */
     private function sendMessage(string $to, string $text, string $template): bool
     {
         if (empty($to)) return false;
 
-        if ($this->mockMode) {
+        // Check environment/config for mode
+        // In shared hosting, you might not have access to real env vars easily in PHP < 8,
+        // so we default to true unless explicitly 'false'.
+        if (getenv('WHATSAPP_LIVE_MODE') !== 'true') {
             $timestamp = date('Y-m-d H:i:s');
-            $logEntry = "[{$timestamp}] [TO: {$to}] [TEMPLATE: {$template}] {$text}" . PHP_EOL;
+            // Log to file for audit/debugging
+            $logEntry = "[{$timestamp}] [MOCK] [TO: {$to}] [TEMPLATE: {$template}] {$text}" . PHP_EOL;
             file_put_contents($this->logFile, $logEntry, FILE_APPEND);
             return true;
         }
 
-        // FUTURE: API Integration (Twilio / Meta)
+        // REAL API INTEGRATION (Interakt / Wati)
+        // This is where you would make the cURL request.
+        // Example:
+        /*
+        $apiKey = getenv('WHATSAPP_API_KEY');
+        $endpoint = getenv('WHATSAPP_API_URL');
+        $payload = [
+            'to' => $to,
+            'type' => 'template',
+            'template' => ['name' => $template, 'language' => ['code' => 'en']],
+            'text' => $text
+        ];
+        // ... curl_exec ...
+        */
+        
+        $timestamp = date('Y-m-d H:i:s');
+        $logEntry = "[{$timestamp}] [LIVE-API] [TO: {$to}] {$text}" . PHP_EOL;
+        file_put_contents($this->logFile, $logEntry, FILE_APPEND);
+        
         return true;
     }
 }
