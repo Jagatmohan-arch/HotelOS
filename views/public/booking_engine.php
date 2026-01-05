@@ -54,11 +54,11 @@
         <div class="space-y-6">
             <?php foreach ($roomTypes as $room): ?>
             <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col md:flex-row">
-                <div class="md:w-1/3 bg-gray-200 h-48 md:h-auto relative">
-                    <!-- Placeholder Image logic -->
-                    <div class="absolute inset-0 flex items-center justify-center text-gray-400 bg-gray-100">
-                        <i data-lucide="image" class="w-12 h-12"></i>
-                    </div>
+                <div class="md:w-1/3 h-48 md:h-auto relative">
+                    <!-- Real Placeholder Image -->
+                    <img src="https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=800&q=80" 
+                         alt="Hotel Room" 
+                         class="absolute inset-0 w-full h-full object-cover">
                 </div>
                 <div class="p-6 md:w-2/3 flex flex-col justify-between">
                     <div>
@@ -119,7 +119,7 @@
                 <form id="bookingForm" onsubmit="submitBooking(event)" class="space-y-4">
                     <input type="hidden" name="room_type_id" id="inputRoomTypeId">
                     
-                    <div class="grid grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">First Name</label>
                             <input type="text" name="first_name" required class="w-full border border-gray-300 rounded-lg px-3 py-2">
