@@ -6,71 +6,70 @@
 ?>
 
 <!-- KPI Cards -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-    <!-- Revenue Card -->
-    <div class="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-lg">
+<!-- KPI Cards -->
+<div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-6 md:mb-8">
+    <!-- Revenue Card (Full Width on Mobile for Emphasis) -->
+    <div class="col-span-2 md:col-span-1 bg-slate-800 rounded-xl p-4 md:p-6 border border-slate-700 shadow-lg">
         <div class="flex justify-between items-start">
             <div>
-                <p class="text-slate-400 text-sm font-medium">Today's Revenue</p>
-                <h3 class="text-3xl font-bold text-white mt-2">₹<?= number_format($stats['todayRevenue'] ?? 0) ?></h3>
+                <p class="text-slate-400 text-xs md:text-sm font-medium">Today's Revenue</p>
+                <h3 class="text-2xl md:text-3xl font-bold text-white mt-1 md:mt-2">₹<?= number_format($stats['todayRevenue'] ?? 0) ?></h3>
             </div>
-            <div class="p-3 bg-emerald-500/10 rounded-lg">
-                <i data-lucide="indian-rupee" class="w-6 h-6 text-emerald-400"></i>
+            <div class="p-2 md:p-3 bg-emerald-500/10 rounded-lg">
+                <i data-lucide="indian-rupee" class="w-5 h-5 md:w-6 md:h-6 text-emerald-400"></i>
             </div>
         </div>
-        <div class="mt-4 flex items-center text-sm">
+        <div class="mt-2 md:mt-4 flex items-center text-xs md:text-sm">
             <span class="text-emerald-400 font-medium flex items-center">
-                <i data-lucide="trending-up" class="w-4 h-4 mr-1"></i> Live
+                <i data-lucide="trending-up" class="w-3 h-3 md:w-4 md:h-4 mr-1"></i> Live
             </span>
-            <span class="text-slate-500 ml-2">updates automatically</span>
         </div>
     </div>
 
     <!-- Occupancy Card -->
-    <div class="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-lg">
+    <div class="bg-slate-800 rounded-xl p-4 md:p-6 border border-slate-700 shadow-lg">
         <div class="flex justify-between items-start">
             <div>
-                <p class="text-slate-400 text-sm font-medium">Occupancy</p>
-                <h3 class="text-3xl font-bold text-white mt-2"><?= $stats['occupancy'] ?? 0 ?>%</h3>
+                <p class="text-slate-400 text-xs md:text-sm font-medium">Occupancy</p>
+                <h3 class="text-xl md:text-3xl font-bold text-white mt-1 md:mt-2"><?= $stats['occupancy'] ?? 0 ?>%</h3>
             </div>
-            <div class="p-3 bg-blue-500/10 rounded-lg">
-                <i data-lucide="pie-chart" class="w-6 h-6 text-blue-400"></i>
+            <div class="p-2 md:p-3 bg-blue-500/10 rounded-lg">
+                <i data-lucide="pie-chart" class="w-5 h-5 md:w-6 md:h-6 text-blue-400"></i>
             </div>
         </div>
-        <div class="mt-4 w-full bg-slate-700 rounded-full h-1.5">
-            <div class="bg-blue-500 h-1.5 rounded-full" style="width: <?= $stats['occupancy'] ?? 0 ?>%"></div>
+        <div class="mt-2 md:mt-4 w-full bg-slate-700 rounded-full h-1 md:h-1.5">
+            <div class="bg-blue-500 h-1 md:h-1.5 rounded-full" style="width: <?= $stats['occupancy'] ?? 0 ?>%"></div>
         </div>
     </div>
 
     <!-- Arrivals Card -->
-    <div class="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-lg">
+    <div class="bg-slate-800 rounded-xl p-4 md:p-6 border border-slate-700 shadow-lg">
         <div class="flex justify-between items-start">
             <div>
-                <p class="text-slate-400 text-sm font-medium">Today's Arrivals</p>
-                <h3 class="text-3xl font-bold text-white mt-2"><?= $stats['todayArrivals'] ?? 0 ?></h3>
+                <p class="text-slate-400 text-xs md:text-sm font-medium">Today's Arrivals</p>
+                <h3 class="text-xl md:text-3xl font-bold text-white mt-1 md:mt-2"><?= $stats['todayArrivals'] ?? 0 ?></h3>
             </div>
-            <div class="p-3 bg-purple-500/10 rounded-lg">
-                <i data-lucide="users" class="w-6 h-6 text-purple-400"></i>
+            <div class="p-2 md:p-3 bg-purple-500/10 rounded-lg">
+                <i data-lucide="users" class="w-5 h-5 md:w-6 md:h-6 text-purple-400"></i>
             </div>
         </div>
-        <div class="mt-4 text-sm text-slate-400">
-            Guests checking in today
+        <!-- Hidden on small mobile to save vertical space -->
+        <div class="mt-2 text-xs text-slate-400 hidden sm:block">
+            Guests checking in
         </div>
     </div>
     
     <!-- Total Rooms -->
-    <div class="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-lg">
+    <!-- Hidden on very small screens if needed, but kept for parity -->
+    <div class="bg-slate-800 rounded-xl p-4 md:p-6 border border-slate-700 shadow-lg hidden xs:block">
         <div class="flex justify-between items-start">
             <div>
-                <p class="text-slate-400 text-sm font-medium">Total Rooms</p>
-                <h3 class="text-3xl font-bold text-white mt-2"><?= $stats['totalRooms'] ?? 0 ?></h3>
+                <p class="text-slate-400 text-xs md:text-sm font-medium">Total Rooms</p>
+                <h3 class="text-xl md:text-3xl font-bold text-white mt-1 md:mt-2"><?= $stats['totalRooms'] ?? 0 ?></h3>
             </div>
-            <div class="p-3 bg-slate-700 rounded-lg">
-                <i data-lucide="bed-double" class="w-6 h-6 text-white"></i>
+            <div class="p-2 md:p-3 bg-slate-700 rounded-lg">
+                <i data-lucide="bed-double" class="w-5 h-5 md:w-6 md:h-6 text-white"></i>
             </div>
-        </div>
-        <div class="mt-4 text-sm text-slate-400">
-            Property capacity
         </div>
     </div>
 </div>
