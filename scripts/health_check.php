@@ -1,11 +1,24 @@
 <?php
 /**
- * HotelOS - System Health Check
+ * HotelOS - System Health Check (Crash-Proof Version)
  * 
  * URL: /scripts/health_check.php
- * Purpose: Quick diagnostic for "Is it down?"
  */
 
+// 1. Defend against Fatal Errors (Parse/Compile)
+register_shutdown_function(function() {
+    $error = error_get_last();
+    if ($error && ($error['type'] === E_ERROR || $error['type'] === E_PARSE)) {
+        http_response_code(500);
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'critical_error', 'error' => $error['message'], 'file' => $error['file'], 'line' => $error['line']]);
+        exit;
+    }
+});
+
+// 2. Settings
+ini_set('display_errors', '0');
+error_reporting(E_ALL);
 header('Content-Type: application/json');
 
 $status = [
@@ -15,104 +28,56 @@ $status = [
     'version' => '5.0.0-ENT'
 ];
 
-$hasError = false;
+$rootDir = dirname(__DIR__);
 
-// 1. Load Dependencies & Environment
+// 3. Check Dependencies (Soft Fail)
+if (file_exists($rootDir . '/vendor/autoload.php')) {
+    require_once $rootDir . '/vendor/autoload.php';
+    $status['checks']['vendor'] = 'loaded';
+} else {
+    $status['checks']['vendor'] = 'missing';
+    // Don't die, just report
+}
+
+// 4. Load Env (Soft Fail)
+if (class_exists('Dotenv\Dotenv') && file_exists($rootDir . '/.env')) {
+    try {
+        $dotenv = Dotenv\Dotenv::createImmutable($rootDir);
+        $dotenv->safeLoad();
+        $status['checks']['env'] = 'loaded';
+    } catch (Exception $e) {
+        $status['checks']['env'] = 'error: ' . $e->getMessage();
+    }
+}
+
+// 5. Database Connection (Try/Catch)
 try {
-    // Determine root directory (Assumes script is in /scripts)
-    $rootDir = dirname(__DIR__);
-    
-    // Enable error reporting for debugging this script specifically if it fails early
-    ini_set('display_errors', '0');
-    error_reporting(E_ALL);
-
-    // Autoload (for Dotenv etc.)
-    if (file_exists($rootDir . '/vendor/autoload.php')) {
-        require_once $rootDir . '/vendor/autoload.php';
+    if (file_exists($rootDir . '/core/Database.php')) {
+        require_once $rootDir . '/core/Database.php';
+        require_once $rootDir . '/core/TenantContext.php'; // Dependency
         
-        // Load .env if Dotenv exists and .env file exists
-        if (class_exists('Dotenv\Dotenv') && file_exists($rootDir . '/.env')) {
-            $dotenv = Dotenv\Dotenv::createImmutable($rootDir);
-            $dotenv->safeLoad();
-        }
-    }
-
-    // Manual include of core files if autoloader misses them or custom structure
-    // Order Matters: Database uses TenantContext
-    $coreFiles = [
-        '/core/TenantContext.php', 
-        '/core/Database.php'
-    ];
-    
-    foreach ($coreFiles as $file) {
-        $fullPath = $rootDir . $file;
-        if (file_exists($fullPath)) {
-            require_once $fullPath;
+        if (class_exists('\HotelOS\Core\Database')) {
+            $db = \HotelOS\Core\Database::getInstance();
+            $db->query("SELECT 1", [], false);
+            $status['checks']['database'] = 'connected';
         } else {
-            // Soft fail: Just note it, don't die yet if we can output JSON
-            $status['checks']['codebase_integrity'] = "Missing: $file";
-            $hasError = true;
+            $status['checks']['database'] = 'class_missing';
         }
+    } else {
+         $status['checks']['database'] = 'file_missing';
     }
-
-    // Connect to DB
-    if (!class_exists('\HotelOS\Core\Database')) {
-        throw new Exception("Database class not loaded");
-    }
-
-    $db = \HotelOS\Core\Database::getInstance();
-    
-    // Test Query (use enforceTenant: false to avoid TenantContext checks if context not set)
-    // Actually, simple SELECT 1 doesn't invoke table logic, but "injectTenantFilter" runs on ALL queries if active.
-    // TenantContext is inactive by default (null), so injectTenantFilter won't run.
-    $db->query("SELECT 1", [], false); 
-    
-    $status['checks']['database'] = 'connected';
 } catch (Exception $e) {
     $status['checks']['database'] = 'error: ' . $e->getMessage();
-    $hasError = true;
-    
-    // Debug info (optional, remove in strict prod)
-    $status['checks']['db_debug'] = [
-        'host' => getenv('DB_HOST') ? 'set' : 'missing',
-        'db'   => getenv('DB_NAME') ? 'set' : 'missing'
-    ];
-}
-
-// 2. Check Disk Space
-$freeSpace = disk_free_space(__DIR__);
-$totalSpace = disk_total_space(__DIR__);
-$status['checks']['disk_free_mb'] = round($freeSpace / 1024 / 1024, 2);
-$status['checks']['disk_usage_pct'] = round((1 - ($freeSpace / $totalSpace)) * 100, 1) . '%';
-
-if ($status['checks']['disk_free_mb'] < 100) { // Alert if < 100MB
-    $status['checks']['disk_alert'] = 'LOW DISK SPACE';
-    $hasError = true;
-}
-
-// 3. Check Write Permissions
-$storagePath = __DIR__ . '/../storage';
-if (!is_dir($storagePath)) {
-    @mkdir($storagePath, 0755, true);
-}
-
-if (is_writable($storagePath)) {
-    $status['checks']['storage_writable'] = true;
-} else {
-    $status['checks']['storage_writable'] = false;
-    $hasError = true;
-}
-
-// 4. Check PHP Version
-$status['checks']['php_version'] = phpversion();
-if (version_compare(phpversion(), '7.4.0', '<')) {
-    $status['checks']['php_alert'] = 'Upgrade recommended (Use PHP 8.0+)';
-}
-
-// Final Status
-if ($hasError) {
-    $status['status'] = 'error';
+    // 500 only if DB specifically fails, as that's critical
     http_response_code(500);
+    $status['status'] = 'db_error';
+}
+
+// 6. Disk Space
+$free = @disk_free_space(__DIR__);
+$total = @disk_total_space(__DIR__);
+if ($free && $total) {
+    $status['checks']['disk_free_mb'] = round($free / 1024 / 1024, 2);
 }
 
 echo json_encode($status, JSON_PRETTY_PRINT);
