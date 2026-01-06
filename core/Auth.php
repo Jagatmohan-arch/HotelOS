@@ -368,11 +368,11 @@ class Auth
 
         // Update user record
         $this->db->execute(
-            "UPDATE users SET 
              last_login_at = NOW(), 
              last_login_ip = :ip, 
              failed_login_attempts = 0,
-             locked_until = NULL
+             locked_until = NULL,
+             email_verified_at = IFNULL(email_verified_at, NOW()) 
              WHERE id = :id",
             [
                 'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',

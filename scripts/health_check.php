@@ -31,30 +31,35 @@ $status = [
 $rootDir = dirname(__DIR__);
 
 // 3. Check Dependencies (Soft Fail)
-if (file_exists($rootDir . '/vendor/autoload.php')) {
-    require_once $rootDir . '/vendor/autoload.php';
-    $status['checks']['vendor'] = 'loaded';
-} else {
-    $status['checks']['vendor'] = 'missing';
-    // Don't die, just report
+try {
+    if (file_exists($rootDir . '/vendor/autoload.php')) {
+        require_once $rootDir . '/vendor/autoload.php';
+        $status['checks']['vendor'] = 'loaded';
+    } else {
+        $status['checks']['vendor'] = 'missing';
+    }
+} catch (Throwable $e) {
+    $status['checks']['vendor'] = 'error: ' . $e->getMessage();
 }
 
 // 4. Load Env (Soft Fail)
-if (class_exists('Dotenv\Dotenv') && file_exists($rootDir . '/.env')) {
-    try {
+try {
+    if (class_exists('Dotenv\Dotenv') && file_exists($rootDir . '/.env')) {
         $dotenv = Dotenv\Dotenv::createImmutable($rootDir);
         $dotenv->safeLoad();
         $status['checks']['env'] = 'loaded';
-    } catch (Exception $e) {
-        $status['checks']['env'] = 'error: ' . $e->getMessage();
     }
+} catch (Throwable $e) {
+    $status['checks']['env'] = 'error: ' . $e->getMessage();
 }
 
 // 5. Database Connection (Try/Catch)
 try {
     if (file_exists($rootDir . '/core/Database.php')) {
         require_once $rootDir . '/core/Database.php';
-        require_once $rootDir . '/core/TenantContext.php'; // Dependency
+        if (file_exists($rootDir . '/core/TenantContext.php')) {
+             require_once $rootDir . '/core/TenantContext.php';
+        }
         
         if (class_exists('\HotelOS\Core\Database')) {
             $db = \HotelOS\Core\Database::getInstance();
@@ -66,7 +71,7 @@ try {
     } else {
          $status['checks']['database'] = 'file_missing';
     }
-} catch (Exception $e) {
+} catch (Throwable $e) {
     $status['checks']['database'] = 'error: ' . $e->getMessage();
     // 500 only if DB specifically fails, as that's critical
     http_response_code(500);
