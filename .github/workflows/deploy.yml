@@ -27,29 +27,12 @@ jobs:
       - name: 📦 Install Dependencies
         run: composer install --no-dev --optimize-autoloader --prefer-dist
 
-      - name: 📂 Sync Files (Standard Action)
-        uses: SamKirkland/FTP-Deploy-Action@4.3.3
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          server-dir: /public_html/
-          exclude: |
-            **/.git/**
-            **/.git
-            **/.github/**
-            **/.github
-            **/node_modules/**
-            .env
-            .env.example
-            deploy.zip
-            upload_deploy.ps1
-            tests/**
-            composer.lock
-          protocol: ftp
-          port: 21
-          timeout: 480000 
-          log-level: verbose
+      - name: 📦 Install LFTP
+        run: sudo apt-get install -y lftp
+
+      - name: 📂 Sync Files (LFTP)
+        run: |
+          lftp -c "set ftp:ssl-allow no; set net:timeout 20; set net:max-retries 3; open -u ${{ secrets.FTP_USERNAME }},${{ secrets.FTP_PASSWORD }} ${{ secrets.FTP_SERVER }}; mirror -R -v --parallel=2 --exclude-glob .git* --exclude-glob .github* --exclude-glob tests* --exclude-glob node_modules* --exclude .env --exclude .env.example --exclude composer.lock ./ /public_html/"
 
       - name: ✅ Deployment Complete
         run: |
