@@ -36,7 +36,19 @@ class AuditLock
         // 2. Generate Digital Signature
         // Hash of ID + Totals + Secret Key
         $signaturePayload = "{$shiftId}|{$shift['opening_cash']}|{$shift['closing_cash']}|{$shift['total_cash_collected']}";
-        $signature = hash_hmac('sha256', $signaturePayload, getenv('APP_KEY') ?: 'hotelos_secret');
+        // 3. Get Application Key (Critical Security)
+        $appKey = getenv('APP_KEY') ?: ($_ENV['APP_KEY'] ?? null);
+        
+        if (empty($appKey)) {
+            // Enterprise Compliance: Cannot lock without secure key
+            // In dev, we might allow it, but for now we enforce it strictly for safety
+            if ((getenv('APP_ENV') ?: 'production') !== 'local') {
+                throw new \Exception("SECURITY CRITICAL: APP_KEY is missing. Cannot securely lock shift.");
+            }
+            $appKey = 'dev_only_unsafe_secret';
+        }
+
+        $signature = hash_hmac('sha256', $signaturePayload, $appKey);
 
         // 3. Store Lock
         try {

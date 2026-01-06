@@ -19,9 +19,13 @@ $hasError = false;
 
 // 1. Load Dependencies & Environment
 try {
-    // Determine root directory
-    $rootDir = realpath(__DIR__ . '/..');
+    // Determine root directory (Assumes script is in /scripts)
+    $rootDir = dirname(__DIR__);
     
+    // Enable error reporting for debugging this script specifically if it fails early
+    ini_set('display_errors', '0');
+    error_reporting(E_ALL);
+
     // Autoload (for Dotenv etc.)
     if (file_exists($rootDir . '/vendor/autoload.php')) {
         require_once $rootDir . '/vendor/autoload.php';
@@ -41,10 +45,13 @@ try {
     ];
     
     foreach ($coreFiles as $file) {
-        if (file_exists($rootDir . $file)) {
-            require_once $rootDir . $file;
+        $fullPath = $rootDir . $file;
+        if (file_exists($fullPath)) {
+            require_once $fullPath;
         } else {
-            throw new Exception("Core file missing: $file");
+            // Soft fail: Just note it, don't die yet if we can output JSON
+            $status['checks']['codebase_integrity'] = "Missing: $file";
+            $hasError = true;
         }
     }
 
