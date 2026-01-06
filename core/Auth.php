@@ -323,6 +323,15 @@ class Auth
             ];
         }
 
+        // Fix #2: Check if email is verified (Consistency with standard login)
+        if (empty($matchedUser['email_verified_at'])) {
+            return [
+                'success' => false,
+                'message' => 'Please verify your email address before logging in.',
+                'user'    => null,
+            ];
+        }
+
         // Check if tenant is active
         if ($matchedUser['tenant_status'] !== 'active') {
             return [

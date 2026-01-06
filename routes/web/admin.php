@@ -20,7 +20,11 @@ if ($requestUri === '/super-admin/dashboard' && $requestMethod === 'GET') {
         exit;
     }
 
-    // 2. Load View
+    // 2. Fetch Data (MVC Pattern)
+    $chainHandler = new \HotelOS\Handlers\ChainHandler();
+    $chainStats = $chainHandler->getChainStats(ChainContext::getId());
+
+    // 3. Load View
     $pageTitle = "Enterprise Dashboard";
     require_once VIEWS_PATH . '/layouts/app.php'; // Will include admin/super_dashboard.php inside logic
     exit;

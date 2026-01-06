@@ -79,20 +79,29 @@ register_shutdown_function(function() {
         
         // Only show detailed error in debug mode
         $isDebugMode = (bool)(getenv('APP_DEBUG') ?: ($_ENV['APP_DEBUG'] ?? false));
+        $isApi = str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/api/');
         
-        if ($isDebugMode) {
-            echo "<div style='font-family:monospace;background:#fdd;padding:20px;border:2px solid red;'>";
-            echo "<h1>FATAL ERROR</h1>";
-            echo "<p><strong>Message:</strong> " . htmlspecialchars($error['message']) . "</p>";
-            echo "<p><strong>File:</strong> " . $error['file'] . "</p>";
-            echo "<p><strong>Line:</strong> " . $error['line'] . "</p>";
-            echo "</div>";
+        if ($isApi) {
+             header('Content-Type: application/json');
+             echo json_encode([
+                 'success' => false,
+                 'error' => $isDebugMode ? "FATAL: {$error['message']}" : 'Server Error'
+             ]);
         } else {
-            // Production: Show generic error message
-            echo "<div style='font-family:sans-serif;text-align:center;padding:50px;'>";
-            echo "<h1>Something went wrong</h1>";
-            echo "<p>We're sorry, an unexpected error occurred. Please try again or contact support.</p>";
-            echo "</div>";
+             if ($isDebugMode) {
+                echo "<div style='font-family:monospace;background:#fdd;padding:20px;border:2px solid red;'>";
+                echo "<h1>FATAL ERROR</h1>";
+                echo "<p><strong>Message:</strong> " . htmlspecialchars($error['message']) . "</p>";
+                echo "<p><strong>File:</strong> " . $error['file'] . "</p>";
+                echo "<p><strong>Line:</strong> " . $error['line'] . "</p>";
+                echo "</div>";
+            } else {
+                // Production: Show generic error message
+                echo "<div style='font-family:sans-serif;text-align:center;padding:50px;'>";
+                echo "<h1>Something went wrong</h1>";
+                echo "<p>We're sorry, an unexpected error occurred. Please try again or contact support.</p>";
+                echo "</div>";
+            }
         }
         
         // Always log error to file

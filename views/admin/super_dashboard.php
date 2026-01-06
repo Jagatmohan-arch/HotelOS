@@ -3,7 +3,6 @@
 // Enterprise HQ Dashboard
 // Shows aggregate data across all properties in the chain
 
-$chainStats = (new \HotelOS\Handlers\ChainHandler())->getChainStats(\HotelOS\Core\ChainContext::getId());
 $summary = $chainStats['summary'] ?? [];
 $properties = $chainStats['tenants'] ?? [];
 ?>
@@ -16,9 +15,12 @@ $properties = $chainStats['tenants'] ?? [];
             <p class="text-gray-500">Chain Overview &middot; Real-time Aggregation</p>
         </div>
         <div class="flex gap-2">
+            <!-- Add Property: Hidden for v5.0 (Manual Onboarding Only) -->
+            <!-- 
             <button class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center gap-2" onclick="alert('Coming Soon: Add Property Wizard')">
                 <i data-lucide="plus-circle" class="w-4 h-4"></i> Add Property
             </button>
+            -->
         </div>
     </div>
 
