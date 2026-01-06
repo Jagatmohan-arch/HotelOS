@@ -186,6 +186,7 @@ require_once __DIR__ . '/../routes/web/bookings.php';
 require_once __DIR__ . '/../routes/web/shifts.php';
 require_once __DIR__ . '/../routes/web/public.php'; // Phase 3: Direct Booking
 require_once __DIR__ . '/../routes/web/guest_portal.php'; // Phase 3: Guest Portal
+require_once __DIR__ . '/../routes/web/admin.php'; // Phase 4: Enterprise Admin
 require_once __DIR__ . '/../routes/api/auth.php';
 
 $requestMethod = $_SERVER['REQUEST_METHOD'];

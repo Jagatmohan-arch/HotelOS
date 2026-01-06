@@ -26,6 +26,16 @@ if (class_exists('\HotelOS\Handlers\SubscriptionHandler')) {
 // ==========================================
 
 $allNavItems = [
+    // 0. ENTERPRISE DASHBOARD (Chain Users Only)
+    ...(class_exists('\HotelOS\Core\ChainContext') && \HotelOS\Core\ChainContext::isActive() ? [[
+        'route' => 'super-dashboard',
+        'label' => 'Enterprise HQ', // Short name
+        'icon'  => 'globe',
+        'href'  => '/super-admin/dashboard',
+        'roles' => ['owner', 'manager'],
+        'class' => 'text-amber-400' // Visual distinction
+    ]] : []),
+
     // 1. DASHBOARD (Everyone)
     [
         'route' => 'dashboard',
