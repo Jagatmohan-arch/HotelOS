@@ -35,13 +35,17 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           server-dir: /public_html/
           exclude: |
-            **/.git*
-            **/.github*
+            **/.git/**
+            **/.git
+            **/.github/**
+            **/.github
             **/node_modules/**
             .env
             .env.example
             deploy.zip
             upload_deploy.ps1
+            tests/**
+            composer.lock
           protocol: ftp
           port: 21
           timeout: 480000 
