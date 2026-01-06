@@ -29,11 +29,11 @@ try {
     if ($existing) {
         // Update
         $db->execute(
-            "UPDATE users SET password_hash = :pass, role = :role WHERE email = :email",
+            "UPDATE users SET password_hash = :pass, role = :role, email_verified_at = NOW() WHERE email = :email",
             ['pass' => $hash, 'role' => $role, 'email' => $email]
         );
         echo "<h1>Success!</h1>";
-        echo "<p>Updated password for <strong>$email</strong>.</p>";
+        echo "<p>Updated password & verified email for <strong>$email</strong>.</p>";
     } else {
         // Create (needs tenant)
         // Check for default tenant
@@ -47,8 +47,8 @@ try {
         }
         
         $db->execute(
-            "INSERT INTO users (tenant_id, email, password_hash, first_name, last_name, role) 
-             VALUES (:tid, :email, :pass, :fname, :lname, :role)",
+            "INSERT INTO users (tenant_id, email, password_hash, first_name, last_name, role, email_verified_at) 
+             VALUES (:tid, :email, :pass, :fname, :lname, :role, NOW())",
             [
                 'tid' => $tenantId,
                 'email' => $email,
