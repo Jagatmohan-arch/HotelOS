@@ -86,36 +86,70 @@ class WhatsAppService
     {
         if (empty($to)) return false;
 
-        // Check environment/config for mode
-        // In shared hosting, you might not have access to real env vars easily in PHP < 8,
-        // so we default to true unless explicitly 'false'.
-        if (getenv('WHATSAPP_LIVE_MODE') !== 'true') {
+        // Check Mode
+        $isLive = getenv('WHATSAPP_LIVE_MODE') === 'true';
+
+        if (!$isLive) {
             $timestamp = date('Y-m-d H:i:s');
-            // Log to file for audit/debugging
             $logEntry = "[{$timestamp}] [MOCK] [TO: {$to}] [TEMPLATE: {$template}] {$text}" . PHP_EOL;
             file_put_contents($this->logFile, $logEntry, FILE_APPEND);
             return true;
         }
 
-        // REAL API INTEGRATION (Interakt / Wati)
-        // This is where you would make the cURL request.
-        // Example:
-        /*
+        // REAL API INTEGRATION (Generic Connector for Interakt/Wati)
         $apiKey = getenv('WHATSAPP_API_KEY');
-        $endpoint = getenv('WHATSAPP_API_URL');
+        $apiUrl = getenv('WHATSAPP_API_URL'); // e.g., https://api.interakt.ai/v1/public/message/
+        
+        if (empty($apiKey) || empty($apiUrl)) {
+            error_log("WhatsApp Service Error: Missing API Credentials");
+            return false;
+        }
+
+        // Construct Payload (Interakt Style)
+        // Adjust this payload structure based on the specific provider if needed
         $payload = [
-            'to' => $to,
-            'type' => 'template',
-            'template' => ['name' => $template, 'language' => ['code' => 'en']],
-            'text' => $text
+            'countryCode' => '+91',
+            'phoneNumber' => $to, // Ensure number is clean (no +91 prefix if provider requires split)
+            'type' => 'Template',
+            'template' => [
+                'name' => $template,
+                'languageCode' => 'en',
+                // We are passing raw text for now as bodyValues. 
+                // Enhanced version would parse variables.
+                'bodyValues' => [
+                    $text 
+                ]
+            ]
         ];
-        // ... curl_exec ...
-        */
+
+        // Init cURL
+        $ch = curl_init($apiUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'Authorization: Basic ' . base64_encode($apiKey . ':') // Wati/Interakt often use Basic Auth or Bearer
+        ]);
         
+        // Some providers use Bearer Token instead:
+        // 'Authorization: Key ' . $apiKey
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
         $timestamp = date('Y-m-d H:i:s');
-        $logEntry = "[{$timestamp}] [LIVE-API] [TO: {$to}] {$text}" . PHP_EOL;
-        file_put_contents($this->logFile, $logEntry, FILE_APPEND);
         
-        return true;
+        if ($httpCode >= 200 && $httpCode < 300) {
+            $logEntry = "[{$timestamp}] [LIVE-SENT] [TO: {$to}] {$text}" . PHP_EOL;
+            file_put_contents($this->logFile, $logEntry, FILE_APPEND);
+            return true;
+        } else {
+            $logEntry = "[{$timestamp}] [LIVE-FAIL] [CODE: {$httpCode}] [ERR: {$error}] [RESP: {$response}]" . PHP_EOL;
+            file_put_contents($this->logFile, $logEntry, FILE_APPEND);
+            return false;
+        }
     }
 }
