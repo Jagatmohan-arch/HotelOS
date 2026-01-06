@@ -23,58 +23,105 @@ class AuditorExportHandler
     }
 
     /**
-     * Generate Full Ledger Export (JSON)
+     * Generate Full Compliance Package (ZIP)
+     * Contains CSVs for Invoices, Transactions, Tax Report and a Cryptographic Manifest.
      */
-    public function generateLedgerExport(string $startDate, string $endDate): string
+    public function generateCompliancePackage(string $startDate, string $endDate): string
     {
         $tenantId = TenantContext::getId();
+        $zipFile = sys_get_temp_dir() . "/audit_pkg_{$tenantId}_" . time() . ".zip";
+        $zip = new \ZipArchive();
 
-        // 1. Fetch Invoices
-        $bookings = $this->db->query(
-            "SELECT id, booking_number, check_in_date, check_out_date, 
-                    rate_per_night, tax_total, grand_total, payment_status, created_at 
-             FROM bookings 
-             WHERE tenant_id = :tid 
-               AND created_at BETWEEN :start AND :end
-             ORDER BY created_at ASC",
-            ['tid' => $tenantId, 'start' => $startDate, 'end' => $endDate . ' 23:59:59'],
-            enforceTenant: false
-        );
+        if ($zip->open($zipFile, \ZipArchive::CREATE) !== TRUE) {
+            throw new \Exception("Cannot create zip file");
+        }
 
-        // 2. Fetch Payments
-        $payments = $this->db->query(
-            "SELECT id, booking_id, amount, payment_mode, category, created_at, created_by 
-             FROM payments 
-             WHERE tenant_id = :tid 
-               AND created_at BETWEEN :start AND :end",
-            ['tid' => $tenantId, 'start' => $startDate, 'end' => $endDate . ' 23:59:59'],
-            enforceTenant: false
-        );
+        // 1. Generate CSVs
+        $invoicesCsv = $this->generateInvoicesCSV($startDate, $endDate);
+        $transactionsCsv = $this->generateTransactionsCSV($startDate, $endDate);
+        $taxCsv = $this->generateTaxCSV($startDate, $endDate);
 
-        // 3. Build Export Structure
-        $export = [
-            'meta' => [
-                'generated_at' => date('Y-m-d H:i:s'),
-                'tenant_id' => $tenantId,
-                'period' => "$startDate to $endDate",
-                'system_version' => 'HotelOS v5.0-ENT'
+        $zip->addFromString("invoices.csv", $invoicesCsv);
+        $zip->addFromString("transactions.csv", $transactionsCsv);
+        $zip->addFromString("tax_report.csv", $taxCsv);
+
+        // 2. Generate Manifest (Anti-Tamper)
+        $manifest = [
+            'generated_at' => date('c'),
+            'tenant_id' => $tenantId,
+            'period_start' => $startDate,
+            'period_end' => $endDate,
+            'files' => [
+                'invoices.csv' => hash('sha256', $invoicesCsv),
+                'transactions.csv' => hash('sha256', $transactionsCsv),
+                'tax_report.csv' => hash('sha256', $taxCsv),
             ],
-            'ledger' => [
-                'bookings_count' => count($bookings),
-                'total_revenue_booked' => array_sum(array_column($bookings, 'grand_total')),
-                'transactions' => $bookings
-            ],
-            'cash_flow' => [
-                'payments_count' => count($payments),
-                'total_collected' => array_sum(array_column($payments, 'amount')),
-                'entries' => $payments
-            ],
-            'checksum' => ''
+            'system' => 'HotelOS Enterprise v5.0',
+            'signature' => hash_hmac('sha256', $invoicesCsv . $transactionsCsv, getenv('APP_KEY') ?: 'hotelos_secret')
         ];
 
-        // 4. Sign the Export
-        $export['checksum'] = hash('sha256', json_encode($export));
+        $zip->addFromString("manifest.json", json_encode($manifest, JSON_PRETTY_PRINT));
+        
+        // 3. Add Readme
+        $zip->addFromString("README.txt", "HotelOS Compliance Export\nGenerated: " . date('Y-m-d H:i:s') . "\n\nThis package contains raw financial data for external audit.\nVerify integrity using manifest.json hashes.");
 
-        return json_encode($export, JSON_PRETTY_PRINT);
+        $zip->close();
+        
+        return $zipFile;
+    }
+
+    private function generateInvoicesCSV(string $start, string $end): string
+    {
+        // ... (fetching logic)
+        $data = $this->db->query(
+            "SELECT booking_number, created_at, check_in_date, check_out_date, 
+                    grand_total, tax_total, payment_status 
+             FROM bookings 
+             WHERE tenant_id = :tid 
+               AND created_at BETWEEN :start AND :end",
+             ['tid' => TenantContext::getId(), 'start' => $start, 'end' => $end . ' 23:59:59'],
+             enforceTenant: false
+        );
+        return $this->arrayToCsv($data, ['Invoice #', 'Date', 'Check-In', 'Check-Out', 'Amount', 'Tax', 'Status']);
+    }
+
+    private function generateTransactionsCSV(string $start, string $end): string
+    {
+        $data = $this->db->query(
+            "SELECT transaction_number, created_at, type, amount, payment_mode, category 
+             FROM transactions 
+             WHERE tenant_id = :tid 
+               AND created_at BETWEEN :start AND :end",
+             ['tid' => TenantContext::getId(), 'start' => $start, 'end' => $end . ' 23:59:59'],
+             enforceTenant: false
+        );
+        return $this->arrayToCsv($data, ['Txn ID', 'Date', 'Type', 'Amount', 'Mode', 'Category']);
+    }
+
+    private function generateTaxCSV(string $start, string $end): string
+    {
+         $data = $this->db->query(
+            "SELECT b.booking_number, b.created_at, b.grand_total as taxable_value, 
+                    (b.grand_total * 0.12) as estimated_gst -- Simplified for Example
+             FROM bookings b
+             WHERE tenant_id = :tid AND b.payment_status = 'paid'
+               AND created_at BETWEEN :start AND :end",
+             ['tid' => TenantContext::getId(), 'start' => $start, 'end' => $end . ' 23:59:59'],
+             enforceTenant: false
+        );
+        return $this->arrayToCsv($data, ['Invoice', 'Date', 'Taxable Value', 'GST Amount']);
+    }
+
+    private function arrayToCsv(array $data, array $headers): string
+    {
+        if (empty($data)) return implode(',', $headers);
+        
+        $fp = fopen('php://temp', 'r+');
+        fputcsv($fp, $headers);
+        foreach ($data as $row) {
+            fputcsv($fp, $row);
+        }
+        rewind($fp);
+        return stream_get_contents($fp);
     }
 }

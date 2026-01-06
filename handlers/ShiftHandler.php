@@ -267,12 +267,21 @@ class ShiftHandler
     
     /**
      * Phase F3: Verify a shift (Manager Action)
+     * Now includes Compliance Locking (Module 3)
      */
     public function verifyShift(int $shiftId, int $managerId, string $note = ''): bool
     {
         $tenantId = TenantContext::getId();
         
-        return (bool) $this->db->execute(
+        // 1. Check if already locked (Compliance Check)
+        $auditLock = new \HotelOS\Core\AuditLock();
+        if ($auditLock->isShiftLocked($shiftId)) {
+            // Already verified and locked
+            return true;
+        }
+
+        // 2. Perform Verification
+        $updated = (bool) $this->db->execute(
             "UPDATE shifts SET 
                 verified_by = :mid, 
                 verified_at = NOW(), 
@@ -285,6 +294,13 @@ class ShiftHandler
                 'tid' => $tenantId
             ]
         );
+
+        // 3. Apply Immutable Audit Lock (WORM)
+        if ($updated) {
+            $auditLock->lockShift($shiftId, $managerId);
+        }
+
+        return $updated;
     }
     
     /**
