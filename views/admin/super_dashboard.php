@@ -71,7 +71,7 @@ $properties = $chainStats['tenants'] ?? [];
         <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
             <h3 class="font-bold text-gray-800">Properties Portfolio</h3>
             <div class="relative">
-                <input type="text" placeholder="Search property..." class="pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-indigo-500">
+                <input type="text" id="propertySearch" placeholder="Search property..." class="pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-indigo-500" onkeyup="filterProperties()">
                 <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3 top-2"></i>
             </div>
         </div>
@@ -82,11 +82,10 @@ $properties = $chainStats['tenants'] ?? [];
                     <th class="px-6 py-3">Property Name</th>
                     <th class="px-6 py-3">Location</th>
                     <th class="px-6 py-3">Status</th>
-                    <th class="px-6 py-3">Revenue (Today)</th>
                     <th class="px-6 py-3 text-right">Actions</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-gray-100">
+            <tbody id="propertyTableBody" class="divide-y divide-gray-100">
                 <?php foreach($properties as $prop): ?>
                 <tr class="hover:bg-gray-50 transition-colors group">
                     <td class="px-6 py-4 font-medium text-gray-900">
@@ -105,12 +104,8 @@ $properties = $chainStats['tenants'] ?? [];
                             <span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs">Inactive</span>
                         <?php endif; ?>
                     </td>
-                    <td class="px-6 py-4 text-gray-900 font-mono">
-                        <!-- Revenue Calculation Per Property Needed in V2 -->
-                        <span class="text-gray-400" title="Coming in next update">---</span>
-                    </td>
                     <td class="px-6 py-4 text-right">
-                        <a href="/admin/switch-context/<?= $prop['id'] ?>" class="text-indigo-600 hover:text-indigo-800 font-medium text-xs border border-indigo-200 hover:bg-indigo-50 px-3 py-1.5 rounded transition-all">
+                        <a href="/super-admin/switch/<?= $prop['id'] ?>" class="text-indigo-600 hover:text-indigo-800 font-medium text-xs border border-indigo-200 hover:bg-indigo-50 px-3 py-1.5 rounded transition-all">
                             Manage Dashboard &rarr;
                         </a>
                     </td>
@@ -120,3 +115,26 @@ $properties = $chainStats['tenants'] ?? [];
         </table>
     </div>
 </div>
+
+<script>
+function filterProperties() {
+    const input = document.getElementById('propertySearch');
+    const filter = input.value.toLowerCase();
+    const tbody = document.getElementById('propertyTableBody');
+    const rows = tbody.getElementsByTagName('tr');
+    
+    for (let i = 0; i < rows.length; i++) {
+        const nameCell = rows[i].getElementsByTagName('td')[0];
+        const locationCell = rows[i].getElementsByTagName('td')[1];
+        if (nameCell && locationCell) {
+            const name = nameCell.textContent || nameCell.innerText;
+            const location = locationCell.textContent || locationCell.innerText;
+            if (name.toLowerCase().indexOf(filter) > -1 || location.toLowerCase().indexOf(filter) > -1) {
+                rows[i].style.display = '';
+            } else {
+                rows[i].style.display = 'none';
+            }
+        }
+    }
+}
+</script>

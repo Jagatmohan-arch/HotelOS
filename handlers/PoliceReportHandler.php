@@ -221,7 +221,7 @@ class PoliceReportHandler
         $data = $this->getReportByDate($date);
         
         $html = $this->buildPoliceReportHTML($data);
-        \HotelOS\Utils\PDFGenerator::generateFromHTML(
+        \HotelOS\Core\PDFGenerator::generateFromHTML(
             $html,
             'Police_Report_' . $date,
             true // download

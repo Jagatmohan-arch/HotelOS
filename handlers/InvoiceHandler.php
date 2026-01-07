@@ -211,7 +211,7 @@ class InvoiceHandler
         }
         
         $html = $this->buildInvoiceHTML($data);
-        \HotelOS\Utils\PDFGenerator::generateFromHTML(
+        \HotelOS\Core\PDFGenerator::generateFromHTML(
             $html,
             $data['invoice_number'],
             true // download
@@ -229,7 +229,7 @@ class InvoiceHandler
         $charges = $data['charges'];
         $stay = $data['stay'];
         
-        $amountInWords = \HotelOS\Utils\PDFGenerator::numberToWords($charges['grand_total']);
+        $amountInWords = \HotelOS\Core\PDFGenerator::numberToWords($charges['grand_total']);
         
         return <<<HTML
 <div class="invoice-container">

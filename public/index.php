@@ -1913,6 +1913,18 @@ function renderDashboard(Auth $auth): void
     // Build alerts for Owner (pending actions needing attention)
     $alerts = [];
     
+    // Context switch notification
+    if (isset($_GET['context_switched']) && $_GET['context_switched'] === '1') {
+        $tenantName = \HotelOS\Core\TenantContext::get()['name'] ?? 'Property';
+        $alerts[] = [
+            'type' => 'success',
+            'icon' => 'check-circle',
+            'title' => 'Context Switched',
+            'description' => 'Now managing: ' . htmlspecialchars($tenantName),
+            'href' => null
+        ];
+    }
+    
     // Check for pending refunds (Owner/Manager)
     if ($auth->isManager()) {
         $db = \HotelOS\Core\Database::getInstance();

@@ -9,7 +9,7 @@
 
 declare(strict_types=1);
 
-namespace HotelOS\Utils;
+namespace HotelOS\Core;
 
 class PDFGenerator
 {
